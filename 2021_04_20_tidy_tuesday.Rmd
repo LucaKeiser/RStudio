@@ -2,6 +2,8 @@
 title: "TidyTemplate"
 date: 2021-04-24
 output: html_output
+editor_options: 
+  chunk_output_type: console
 ---
 
 # TidyTuesday
@@ -29,62 +31,149 @@ Dowload the weekly data and make available in the `tt` object.
 
 tt <- tt_load("2021-04-20")
 
+# Take a look
+tt$netflix_titles
+View(tt$netflix_titles)
+
+tt$netflix_titles %>%
+  count(release_year)
+
+tt$netflix_titles %>% 
+  summarise(min(release_year), max(release_year))
+  
+tt$netflix_titles %>% 
+  count(type)
+
+tt$netflix_titles %>% 
+  count(country)
+
+netflix_titles <- tt$netflix_titles
+netflix_titles
+```
+
+Let's get going
+
+```{r}
+netflix_titles %>% 
+  ggplot(aes(release_year, fill = type)) +
+  geom_histogram(binwidth = 5)
+
+netflix_titles %>% 
+  ggplot(aes(release_year, fill = type)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~ type, ncol = 1, scales = "free_y")
+
+
+netflix_titles %>% 
+  count(decade = 10 * (release_year %/% 10), type) %>% 
+  group_by(type) %>% 
+  mutate(percent = (n / sum(n))*100) %>% 
+  ggplot(aes(decade, percent, color = type), size  =2) +
+  geom_line()
 ```
 
 
-# Readme
+```{r}
+# clean up and reload the data
 
-Take a look at the readme for the weekly data to get insight on the dataset.
-This includes a data dictionary, source, and a link to an article on the data.
+library(lubridate)
 
-```{r Readme, eval = interactive()}
-
-tt
-
+netflix_titles <- tt$netflix_titles %>% 
+  separate(duration, c("duration", "duration_units"), sep = " ", convert = T) %>% 
+  mutate(date_added = mdy(date_added)) %>% 
+  mutate(year_added = year(date_added))
 ```
 
+```{r}
+# median duration tpye == "Movie"
 
-# Glimpse Data
-
-Take an initial look at the format of the data available.
-
-```{r Glimpse}
-
-tt %>% 
-  map(glimpse)
-
-```
-
-# Wrangle
-
-Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
-
-```{r Wrangle}
-
-
-
-```
-
-
-# Visualize
-
-Using your processed dataset, create your unique visualization.
-
-```{r Visualize}
-
-
+netflix_titles %>% 
+  filter(type == "Movie") %>% 
+  mutate(decade = 10 * (release_year %/% 10)) %>% 
+  ggplot(aes(decade, duration, group = decade)) +
+  geom_boxplot()
   
 ```
 
-# Save Image
 
-Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+```{r}
+# lsited_in (= genre) & median duration
+
+netflix_titles$listed_in
+
+netflix_titles %>% 
+  separate_rows(listed_in, sep = ", ") %>% 
+  group_by(type, genre = listed_in) %>% 
+  summarise(n = n(),
+            median_duration = median(duration)) %>% 
+  arrange(desc(n)) %>% 
+  filter(type == "Movie") %>% 
+  filter(genre != "Movies") %>% 
+  mutate(genre = fct_reorder(genre, median_duration)) %>% 
+  ggplot(aes(median_duration, genre)) +
+  geom_col()
+```
+
+```{r}
+# year_added & ratings
+
+netflix_titles %>% 
+  filter(!is.na(date_added)) %>% 
+  count(year_added = year(date_added), sort = T)
+
+netflix_titles %>% 
+  filter(!is.na(date_added)) %>% 
+  filter(year_added >= 2015) %>% 
+  count(year_added, type) %>% 
+  ggplot(aes(year_added, n, fill = type)) +
+  geom_area()
+
+netflix_titles %>% 
+  filter(!is.na(date_added), !is.na(rating)) %>% 
+  filter(year_added >= 2015) %>% 
+  mutate(rating = fct_lump(rating, 5)) %>% 
+  count(type, year_added, rating) %>% 
+  group_by(type, year_added) %>% 
+  mutate(percent = (n / sum(n) *100)) %>% 
+  ggplot(aes(year_added, percent, fill = rating)) +
+  geom_area() +
+  facet_wrap(~ type)
+```
+
+
+```{r}
+summarise_titles <- function(tbl) {
+  tbl %>% 
+    summarise(n = n(),
+              median_duration = median(duration),
+              median_year = median(release_year)) %>% 
+    arrange(desc(n))
+}
+
+
+netflix_titles %>% 
+  filter(!is.na(country)) %>% 
+  count(country = fct_lump(country, 9),
+        type,
+        sort = T) %>%
+  mutate(country = fct_reorder(country, n)) %>% 
+  ggplot(aes(n, country, fill = type)) +
+  geom_col()
+
+
+netflix_titles %>% 
+  filter(!is.na(country)) %>% 
+  filter(type == "Movie") %>% 
+  group_by(country) %>% 
+  summarise_titles()
+```
+
+
 
 ```{r}
 
-# This will save your most recent plot
-ggsave(
-  filename = "My TidyTuesday Plot.png",
-  device = "png")
-
 ```
+
+
+
+
