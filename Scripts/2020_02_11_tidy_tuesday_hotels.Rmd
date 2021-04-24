@@ -1,0 +1,105 @@
+---
+title: "TidyTuesday_hotels"
+author: "Luca"
+date: "24/04/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+```
+
+
+Get the data
+
+```{r}
+tt <- tt_load("2020-02-11")
+
+hotels <- tt$hotels
+View(hotels)
+
+hotel_stays <- hotels %>% 
+  filter(is_canceled == 0) %>% 
+  mutate(childern = case_when(children + babies > 0 ~ "childern",
+                              TRUE ~ "none"),
+         required_car_parking_spaces = case_when(required_car_parking_spaces > 0 ~ "parking",
+                                                 TRUE ~ "none")) %>% 
+  select(-is_canceled, - reservation_status, -babies)
+
+head(hotel_stays)
+```
+
+
+
+```{r}
+# take a look with skimr
+
+library(skimr)
+skim(hotel_stays)
+```
+
+
+```{r}
+hotel_stays %>% 
+  mutate(arrival_date_month = factor(arrival_date_month,
+                                     levels = month.name)) %>% 
+  count(arrival_date_month, childern) %>% 
+  group_by(childern) %>% 
+  mutate(proportion = n / sum(n)) %>% 
+  ggplot(aes(arrival_date_month, proportion, fill = childern)) + 
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format())
+
+hotel_stays %>% 
+  mutate(arrival_date_month = factor(arrival_date_month,
+                                     levels = month.name)) %>% 
+  count(hotel, arrival_date_month, childern) %>% 
+  group_by(hotel, childern) %>% 
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(arrival_date_month, proportion, fill = childern)) + 
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~ hotel, nrow = 2)
+
+```
+
+
+```{r}
+hotel_stays %>% 
+  count(hotel, required_car_parking_spaces, childern) %>% 
+  group_by(hotel, childern) %>% 
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(required_car_parking_spaces, proportion, fill = childern)) + 
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~ hotel, nrow = 2)
+```
+
+
+
+```{r}
+library(GGally)
+
+hotel_stays %>% 
+  select(childern, adr, required_car_parking_spaces, total_of_special_requests) %>% 
+  ggpairs(mapping = aes(color = childern))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
