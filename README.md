@@ -18,3 +18,10 @@ Modeling hotel bookings in R using tidymodels and recipes
 https://www.youtube.com/watch?v=dbXDkEEuvCU
 
 
+3) Cocktails
+
+following Hadley Wickham
+
+20 tidy tuesday cocktails
+
+https://www.youtube.com/watch?v=kHFmtKCI_F4
