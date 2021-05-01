@@ -1,0 +1,74 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+```
+
+```{r}
+tt <- tt_load("2021-04-13")
+post_offices <- tt$post_offices
+```
+
+```{r}
+post_offices %>% 
+  count(name, sort = T)
+
+post_offices %>% 
+  count(name, orig_name, state, county1, sort = T)
+
+post_offices %>% 
+  filter(county1 == "GRAND TRAVERSE", name == "ACME") %>% 
+  view()
+
+post_offices %>% 
+  count(gnis_feature_id, sort = T)
+
+# check for duplicates
+post_offices %>% 
+  add_count(name, orig_name, state, county1, sort = TRUE) %>% 
+  filter(n >= 2) %>% 
+  arrange(name, orig_name, state, county1) %>% 
+  View()
+
+post_offices <- post_offices %>% 
+  select(name, state, county1, established, discontinued, continuous,
+         stamp_index, id, coordinates, longitude, latitude, gnis_county,
+         gnis_state, gnis_dist) %>% 
+  filter(established >= 1639, 
+         is.na(discontinued) | discontinued >= established)
+```
+
+
+```{r}
+post_office_years <- post_offices %>% 
+  select(name, state, established, discontinued) %>% 
+  replace_na(list(discontinued = 2003)) %>% 
+  filter(established >= 1750,
+         discontinued <= 2021) %>% 
+  mutate(year = map2(established, discontinued, seq)) %>% 
+  unnest(year)
+
+post_office_years
+```
+
+
+```{r}
+post_office_years %>% 
+  count(year, name = "n_post_offices") %>% 
+  ggplot(aes(year, n_post_offices)) +
+  geom_area() +
+  labs(x = "Year",
+       y = "Number of post offices currently active in US")
+```
+
+```{r}
+
+```
+
