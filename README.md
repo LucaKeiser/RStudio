@@ -25,3 +25,12 @@ following Hadley Wickham
 20 tidy tuesday cocktails
 
 https://www.youtube.com/watch?v=kHFmtKCI_F4
+
+
+4) Post Offices
+
+following David Robinson
+
+Tidy Tuesday live screencast: Analyzing post offices in R
+
+https://www.youtube.com/watch?v=Sx9uo2tCOFM
