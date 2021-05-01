@@ -69,6 +69,76 @@ post_office_years %>%
 ```
 
 ```{r}
-
+post_office_years %>% 
+  count(year,
+        state = fct_lump(state, 6),
+        name = "n_post_offices") %>% 
+  ggplot(aes(year, n_post_offices, fill = state)) +
+  geom_area() +
+  labs(x = "Year",
+       y = "Number of post offices currently active in US")
 ```
+
+
+```{r}
+post_office_years %>% 
+  count(year,
+        state = fct_lump(state, 16),
+        name = "n_post_offices") %>%
+  mutate(state = fct_reorder(state, -n_post_offices, sum)) %>% 
+  filter(state != "Other") %>% 
+  ggplot(aes(year, n_post_offices, fill = state)) +
+  geom_area() +
+  labs(x = "Year",
+       y = "Number of post offices currently active in US") +
+  facet_wrap(~state) +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+post_offices %>% 
+  filter(!is.na(discontinued)) %>% 
+  count(state,
+        decade = 10 * (discontinued %/% 10),
+        name = "n_closures") %>% 
+  filter(state == "KY") %>% 
+  ggplot(aes(decade, n_closures)) +
+  geom_area()
+```
+
+```{r}
+post_offices %>%
+  filter(!is.na(discontinued)) %>% 
+  filter(discontinued >= 1750,
+         discontinued <= 2021) %>% 
+  count(state = fct_lump(state, 16),
+        decade = 10 * (discontinued %/% 10),
+        name = "n_closures") %>% 
+  mutate(state = fct_reorder(state, -n_closures, sum)) %>% 
+  filter(state != "Other") %>% 
+  ggplot(aes(decade, n_closures, fill = state)) +
+  geom_area() +
+  labs(x = "Year",
+       y = "Number of post offices closed in this decade",
+       title = "When and where were the most post offices closed?") +
+  facet_wrap(~state) +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
