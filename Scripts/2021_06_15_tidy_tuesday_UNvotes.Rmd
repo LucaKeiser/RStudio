@@ -1,0 +1,311 @@
+---
+title: "TidyTemplate"
+date: 2021-06-16
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+theme_set(theme_light())
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-03-23")
+
+unvotes <- tt$unvotes %>% 
+  mutate(vote_number = match(vote, c("no", "abstain", "yes")) -2) %>% 
+  left_join(tt$roll_calls %>% 
+              select(rcid, date, amend), by = "rcid")
+  
+unvotes
+
+unvotes %>% 
+  count(vote, sort = TRUE) 
+
+unvotes %>% 
+  count(country, sort = TRUE)
+```
+
+
+Create a function
+```{r}
+summarize_votes <- function(tbl, min_votes = 10) {
+  tbl %>% 
+    summarize(n_votes = n(),
+              n_yes = sum(vote == "yes"),
+              pct_yes = n_yes / n_votes,
+              .groups = "drop") %>% 
+    filter(n_votes >= min_votes) %>% 
+    arrange(desc(pct_yes))
+}
+```
+
+
+```{r}
+by_country <- unvotes %>% 
+  group_by(country, country_code) %>% 
+  summarize_votes()
+
+
+
+by_country %>% 
+  slice(c(1:10, (n() - 10):n())) %>% 
+  mutate(country = fct_reorder(country, pct_yes)) %>%
+  ggplot(aes(pct_yes, country)) +
+  geom_point(aes(size = n_votes)) +
+  scale_x_continuous(labels = percent) + 
+  labs(x = "% of yes votes in UN",
+       title = "What countries voted yes the least/the most?")
+```
+
+
+```{r}
+by_year <- unvotes %>% 
+  group_by(year = year(date)) %>% 
+  summarize_votes()
+
+by_year
+
+by_year %>% 
+  ggplot(aes(year ,pct_yes)) + 
+  geom_line() +
+  expand_limits(y = 0)
+
+by_country_year <- unvotes %>% 
+  group_by(year = year(date), country, country_code) %>% 
+  summarize_votes()
+
+by_country_year %>% 
+  filter(country %in% c("United States", "Canada", "Mali", "Israel", "Germany", "France")) %>% 
+  mutate(country = fct_reorder(country, pct_yes)) %>% 
+  ggplot(aes(year, pct_yes, color = country)) + 
+  geom_line() + 
+  scale_color_discrete(guide = guide_legend(reverse = TRUE)) +
+  expand_limits(y = 0) +
+  labs(y = "% yes votes over time")
+
+
+by_country_year %>% 
+  filter(country %in% c("United States", "Canada", "Mali", "Israel", "Germany", "France")) %>% 
+  mutate(country = fct_reorder(country, pct_yes)) %>% 
+  ggplot(aes(year, pct_yes, color = country)) + 
+  geom_line() + 
+  scale_y_continuous(labels = percent) +
+  expand_limits(y = 0) +
+  facet_wrap(~ country) +
+  theme(legend.position = "none") +
+  labs(y = "% yes votes over time")
+
+
+# adding an overall
+by_country_year %>%
+  filter(country %in% c("United States", "Canada", "Mali", "Israel", "Germany", "France")) %>% 
+  mutate(country = fct_reorder(country, pct_yes)) %>% 
+  ggplot(aes(year, pct_yes)) +
+  geom_line(data = by_year, size = 1.5) +
+  geom_line(aes(color = country)) +
+  scale_y_continuous(labels = percent) +
+  scale_color_discrete(guide = guide_legend(reverse = TRUE)) +
+  expand_limits(y = 0) +
+  labs(y = "% yes votes over time")
+  
+```
+
+
+World map
+
+```{r}
+library(ggthemes)
+library(fuzzyjoin)
+
+world_data <- map_data("world") %>% 
+  as_tibble() %>% 
+  regex_left_join(maps::iso3166 %>% 
+                    select(mapname, country_code = a2), 
+                  c(region = "mapname")) %>% 
+  filter(region != "Antarctica")
+
+world_data
+
+
+world_data %>% 
+  left_join(by_country, by = "country_code") %>% 
+  ggplot(aes(long, lat, group = group, fill = pct_yes)) +
+  geom_polygon() +
+  theme_map() + 
+  scale_fill_gradient2(low = "red",
+                       high = "blue",
+                       midpoint = 0.6,
+                       labels = percent) +
+  labs(fill = "% yes votes")
+```
+
+
+By continent
+
+```{r}
+library(countrycode)
+
+# create another function
+plot_by <- function(tbl, category) {
+  tbl %>% 
+    filter(!is.na({{ category }})) %>% 
+    mutate(category = fct_reorder({{ category }}, pct_yes)) %>% 
+    ggplot(aes(year, pct_yes)) +
+    geom_line(aes(color = category)) +
+    scale_y_continuous(labels = percent) +
+    scale_color_discrete(guide = guide_legend(reverse = TRUE),
+                       name = "Continent") +
+    expand_limits(y = 0) +
+    labs(y = "% Yes Votes Over Time",
+         x  = "Year")
+  }
+
+
+unvotes %>% 
+  group_by(continent = countrycode(country_code, "iso2c", "continent"),
+           year = year(date)) %>% 
+  summarize_votes() %>% 
+  plot_by(continent)
+
+
+```
+
+
+```{r}
+library(WDI)
+
+country_incomes <- WDI(indicator = c(gdp_per_capita = "NY.GDP.PCAP.PP.KD",
+                                     pop = "SP.POP.TOTL"), 
+                       start = 2000, end = 2019,
+                       extra = TRUE) %>% 
+  as_tibble() %>% 
+  select(country_code = iso2c, year,  income, gdp_per_capita, pop) %>% 
+  filter(!is.na(income)) %>% 
+  mutate(income = fct_relevel(income, "Low income", "Lower middle income", "Upper middle income"))
+
+country_incomes
+
+
+unvotes %>% 
+  inner_join(country_incomes, by = "country_code") %>% 
+  group_by(income,
+           year = year(date)) %>% 
+  summarize_votes() %>% 
+  plot_by(income)
+
+```
+
+
+Correlation between countries
+
+```{r}
+unvotes %>% 
+  filter(country %in% c("United States", "Canada")) %>% 
+  select(rcid, country, vote_number) %>% 
+  spread(country, vote_number, fill = 0) %>% 
+  summarize(correlation = cor(Canada, `United States`))
+
+
+# do it all at the same time for one specific country!
+library(widyr)
+country_correlations <- unvotes %>% 
+  as_tibble() %>% 
+  filter(country != "Zanzibar") %>% 
+  pairwise_cor(country, rcid, vote_number, sort = TRUE) 
+
+
+
+country_correlations %>% 
+  filter(item1 == "Russia") %>%                                        # choose whatever country you like!
+  slice(c(1:20, n() - 0:19)) %>% 
+  mutate(country = fct_reorder(item2, correlation)) %>% 
+  ggplot(aes(correlation, country)) + 
+  geom_errorbarh(height = 0, aes(xmin = correlation, xmax = 0)) +
+  geom_point() +
+  labs(x = "How much this country's voting is correlatied with Russia",
+       y = "")
+  
+country_correlations %>% 
+  filter(item1 == "United States") %>%                                        # choose whatever country you like!
+  slice(c(1:20, n() - 0:19)) %>% 
+  mutate(country = fct_reorder(item2, correlation)) %>% 
+  ggplot(aes(correlation, country)) + 
+  geom_errorbarh(height = 0, aes(xmin = correlation, xmax = 0)) +
+  geom_point() +
+  labs(x = "How much this country's voting is correlatied with the US",
+       y = "")
+
+country_correlations %>% 
+  filter(item1 == "North Korea") %>%                                        # choose whatever country you like!
+  slice(c(1:20, n() - 0:19)) %>% 
+  mutate(country = fct_reorder(item2, correlation)) %>% 
+  ggplot(aes(correlation, country)) + 
+  geom_errorbarh(height = 0, aes(xmin = correlation, xmax = 0)) +
+  geom_point() +
+  labs(x = "How much this country's voting is correlatied with North Korea",
+       y = "")
+```
+
+
+## 46:03
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
