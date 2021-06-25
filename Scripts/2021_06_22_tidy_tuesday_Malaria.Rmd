@@ -114,8 +114,9 @@ kenya_pr %>%
 ```
 
 
+
 Aggregated across countries
-https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-11-13/malaria_inc.csv
+
 
 **Malaria inicdents**
 
@@ -237,11 +238,43 @@ malaria_deaths_processed %>%
 world
 
 malaria_deaths_processed %>% 
+  filter(year %% 10 == 0) %>% 
   inner_join(maps::iso3166 %>% 
                select(a3, mapname), by = c(code = "a3")) %>% 
   inner_join(world, by = c(mapname = "region")) %>% 
-  ggplot(aes(long, lat, fill = deaths)) +
-  geom_polygon()
+  ggplot(aes(long, lat, fill = deaths, group = group)) +
+  geom_polygon() +
+  scale_fill_gradient2(low = "blue", mid = "orange", high = "red", midpoint = 100) +
+  coord_fixed() +
+  facet_wrap(~ year) +
+  theme_void() +
+  labs(title = "Malaria deaths over time around the world")
+
+# china is missing!
+```
+
+```{r}
+malaria_country_data <- malaria_deaths_processed %>% 
+  inner_join(maps::iso3166 %>% 
+               select(a3, mapname), by = c(code = "a3")) %>% 
+  mutate(mapname = str_remove(mapname, "\\(.*"))
+
+malaria_country_data %>% 
+  filter(mapname == "China")
+
+# worked
+
+
+world %>% 
+  inner_join(malaria_country_data, by = c(region = "mapname")) %>% 
+  filter(year %% 10 == 0) %>% 
+  ggplot(aes(long, lat, fill = deaths, group = group)) +
+  geom_polygon() +
+  scale_fill_gradient2(low = "blue", mid = "orange", high = "red", midpoint = 100) +
+  coord_fixed() +
+  facet_wrap(~ year) +
+  theme_void() +
+  labs(title = "Malaria deaths over time around the world")
 ```
 
 
