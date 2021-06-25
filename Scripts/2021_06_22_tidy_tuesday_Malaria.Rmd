@@ -28,7 +28,6 @@ library(scales)
 Dowload the weekly data and make available in the `tt` object.
 
 ```{r Load}
-install.packages("malariaAtlas")
 library(malariaAtlas)
 
 pr <- malariaAtlas::getPR(ISO = "KEN", species = "BOTH") # data only for Kenya
@@ -110,9 +109,144 @@ kenya_pr %>%
   facet_wrap(~ decade) +
   theme_void() +
   coord_map() +
-  labs(color = "Prevelance")
+  labs(color = "Prevalence")
 
 ```
+
+
+Aggregated across countries
+https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-11-13/malaria_inc.csv
+
+**Malaria inicdents**
+
+```{r}
+malaria_inc <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-11-13/malaria_inc.csv")
+malaria_inc
+
+malaria_inc_processed <- malaria_inc %>% 
+  set_names(c("country", "code", "year", "incidence")) %>% 
+  mutate(incidence = incidence / 1000)  # percent
+```
+
+```{r}
+malaria_inc_processed %>% 
+  filter(country %in% sample(unique(country), 6)) %>% # sample 6 countries randomly => get a feeling for the data set
+  ggplot(aes(year, incidence, color = country)) +
+  geom_line() +
+  scale_y_continuous(labels = percent_format())
+
+```
+
+
+Looking at 2015 levels and the changes form 2000 to 2015
+
+```{r}
+malaria_inc_processed %>% 
+  group_by(country) %>% 
+  summarize(current = last(incidence),
+            change = last(incidence) / first(incidence)) %>% 
+  arrange(desc(change))
+
+
+# a bit more detailed approach
+
+malaria_spread <- malaria_inc_processed %>% 
+                  mutate(year = paste0("Y", year)) %>% 
+                  spread(year, incidence)
+                  
+
+malaria_spread %>% 
+  filter(country != "Turkey",
+         !is.na(code)) %>% 
+  mutate(current = Y2015,
+         change = Y2015 - Y2000) %>% # difference instead of ratio
+  arrange(change) %>% 
+  ggplot(aes(current, change)) +
+  geom_point() +
+  geom_text(aes(label = code))
+
+```
+
+
+Map the data!
+```{r}
+malaria_spread %>% 
+  anti_join(map_data("world"), by = c(country = "region")) # good for merging!
+```
+
+Merging & mapping (malaria inicidence over time)
+```{r}
+
+world <- map_data("world") %>% 
+  filter(region != "Antarctica")
+
+malaria_spread %>% 
+  inner_join(maps::iso3166 %>% 
+               select(a3, mapname), by = c(code = "a3")) %>%  # we do not need every column...
+  right_join(world, by = c(mapname = "region")) %>% 
+  
+  ggplot(aes(long, lat, group = group, fill = Y2015)) +
+  geom_polygon() +
+  scale_fill_gradient2(low = "blue", mid = "orange", high = "red", midpoint = 0.25,
+                       label = percent_format()) +
+  theme_void() +
+  coord_fixed()
+
+
+malaria_inc_processed %>% 
+  filter(incidence < 1) %>% 
+  inner_join(maps::iso3166 %>% 
+               select(a3, mapname), by = c(code = "a3")) %>%  # we do not need every column...
+  left_join(world, by = c(mapname = "region")) %>% 
+  
+  ggplot(aes(long, lat, group = group, fill = incidence)) +
+  geom_polygon() +
+  scale_fill_gradient2(low = "blue", mid = "orange", high = "red", midpoint = 0.35,
+                       label = percent_format()) +
+  theme_void() +
+  coord_fixed() +
+  facet_wrap(~ year) +
+  labs(title = "Malaria incidence over time")
+```
+
+
+**Malaria deaths**
+
+```{r}
+malaria_deaths <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-11-13/malaria_deaths.csv")
+
+malaria_deaths_processed <- malaria_deaths %>% 
+  set_names(c("country", "code", "year", "deaths")) # per 100'000 (not %)
+
+malaria_deaths_processed
+
+```
+
+
+```{r}
+malaria_deaths_processed %>% 
+  filter(country %in% sample(unique(country), 6)) %>% # sample 6 countries randomly => get a feeling for the data set
+  ggplot(aes(year, deaths, color = country)) +
+  geom_line() +
+  labs(y = "Deaths per 100'000")
+
+```
+
+
+```{r}
+world
+
+malaria_deaths_processed %>% 
+  inner_join(maps::iso3166 %>% 
+               select(a3, mapname), by = c(code = "a3")) %>% 
+  inner_join(world, by = c(mapname = "region")) %>% 
+  ggplot(aes(long, lat, fill = deaths)) +
+  geom_polygon()
+```
+
+
+
+
 
 
 
