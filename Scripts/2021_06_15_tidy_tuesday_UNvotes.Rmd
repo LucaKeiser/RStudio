@@ -268,10 +268,40 @@ country_correlations %>%
        y = "")
 ```
 
+Which countries agree/disagree the most?
 
-## 46:03
+```{r}
+country_correlations %>% 
+  group_by(country = item1) %>% 
+  summarize(median_correlation = median(correlation),
+            avg_correlation = mean(correlation)) %>% 
+  arrange(desc(median_correlation))
+```
+
+Text analysis
+
+```{r}
+library(tidytext)
+
+rc_words <- tt$roll_calls %>% 
+  filter(!is.na(short)) %>% 
+  unnest_tokens(word, short) %>%
+  anti_join(stop_words, by = "word") %>% 
+  select(rcid, word)
 
 
+unvotes %>% 
+  inner_join(rc_words, by = "rcid") %>% 
+  filter(country == "United States") %>% 
+  group_by(word) %>% 
+  summarize_votes(min_votes = 100) %>% 
+  mutate(word = fct_reorder(word, pct_yes)) %>% 
+  ggplot(aes(pct_yes, word)) +
+  geom_point(aes(size = n_votes)) +
+  expand_limits(x = 0) +
+  scale_x_continuous(labels = percent) +
+  labs(x = "% yes")
+```
 
 
 
