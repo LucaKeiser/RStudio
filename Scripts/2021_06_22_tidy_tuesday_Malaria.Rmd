@@ -2,6 +2,8 @@
 title: "TidyTemplate"
 date: 2021-06-25
 output: html_output
+editor_options: 
+  chunk_output_type: console
 ---
 
 # TidyTuesday
@@ -18,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(tidytuesdayR)
-
+library(scales)
 ```
 
 # Load the weekly Data
@@ -26,65 +28,101 @@ library(tidytuesdayR)
 Dowload the weekly data and make available in the `tt` object.
 
 ```{r Load}
+install.packages("malariaAtlas")
+library(malariaAtlas)
 
-tt <- tt_load("2021-06-22")
+pr <- malariaAtlas::getPR(ISO = "KEN", species = "BOTH") # data only for Kenya
+pr
 
+class(pr)
+
+# autoplot-function (malariaAtlas) only works with objects of class pr.points/data.frame
+# PR = parasite rate (prevalence)
+# for more information: https://github.com/malaria-atlas-project/malariaAtlas
+autoplot(pr)
 ```
 
 
-# Readme
-
-Take a look at the readme for the weekly data to get insight on the dataset.
-This includes a data dictionary, source, and a link to an article on the data.
-
-```{r Readme, eval = interactive()}
-
-tt
-
-```
-
-
-# Glimpse Data
-
-Take an initial look at the format of the data available.
-
-```{r Glimpse}
-
-tt %>% 
-  map(glimpse)
-
-```
-
-# Wrangle
-
-Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
-
-```{r Wrangle}
-
-
-
-```
-
-
-# Visualize
-
-Using your processed dataset, create your unique visualization.
-
-```{r Visualize}
-
-
-  
-```
-
-# Save Image
-
-Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
 
 ```{r}
+kenya_pr <- as_tibble(pr)
+kenya_pr %>% 
+  View()
 
-# This will save your most recent plot
-ggsave(
-  filename = "My TidyTuesday Plot.png",
-  device = "png")
+kenya_pr %>% 
+  count(year_start) %>% 
+  View()
+
+
+kenya_pr %>% 
+  group_by(year_start) %>% 
+  summarise(examined = sum(examined),
+            positive = sum(positive),
+            studies = n()) %>% 
+  mutate(pr = positive / examined) %>% 
+  ggplot(aes(year_start, pr)) +
+  geom_line()
+# this line graph is confounded by the number of studies conducted each year (how much financing did they get?)
+
+# sort of a map
+kenya_pr %>% 
+  ggplot(aes(longitude, latitude, color = year_start)) +
+  geom_point() 
+# why are there so many NAs in year_start? => "no permission to release data"
+kenya_pr %>% 
+  filter(is.na(year_start)) %>% 
+  View()
+```
+
+```{r}
+# filter out the NAs
+kenya_pr <- kenya_pr %>% 
+  filter(!is.na(pr))
+
+kenya_pr %>% 
+  ggplot(aes(longitude, latitude, color = year_start)) +
+  borders(database = "world", regions = "Kenya") +
+  geom_point() +
+  coord_fixed()
+
+
+kenya_pr %>% 
+  arrange(pr) %>% # plot the highest points last! => very nice
+  ggplot(aes(longitude, latitude, color = pr)) +
+  borders(database = "world", regions = "Kenya") +
+  geom_point() +
+  scale_color_gradient2(low = "blue", midpoint = 0.5, high = "red",
+                        labels = percent_format()) +
+  coord_map() +
+  theme_void()
 
 ```
+
+```{r}
+# map by decade!
+kenya_pr %>% 
+  mutate(decade = 10 * year_start %/% 10) %>% 
+  arrange(pr) %>% 
+  ggplot(aes(longitude, latitude, color = pr)) +
+  borders(database = "world", regions = "Kenya") + 
+  geom_point() + 
+  scale_color_gradient2(low = "blue", mid = "orange", high = "red", midpoint = 0.5) +
+  facet_wrap(~ decade) +
+  theme_void() +
+  coord_map() +
+  labs(color = "Prevelance")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
