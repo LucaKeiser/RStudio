@@ -1,0 +1,273 @@
+---
+title: "BobRossPaintings"
+author: "Luca"
+date: "30/06/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_light())
+
+```
+
+
+
+Load data
+```{r}
+bob_ross <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-08-06/bob-ross.csv")
+
+bob_ross
+```
+
+
+Data cleaning
+```{r}
+bob_ross_gathered <- bob_ross %>% 
+  janitor::clean_names() %>% 
+  gather(element, present, -episode, -title) %>% 
+  filter(present == 1) %>% 
+  mutate(title = str_to_title(str_remove_all(title, '"')),
+         element = str_to_title(str_replace(element, "_", " "))) %>% 
+  select(-present) %>% 
+  extract(episode, c("season", "episode_number"), "S(.*)E(.*)",
+          convert = TRUE,
+          remove = FALSE) %>% 
+  arrange(season, episode)
+
+bob_ross_gathered
+
+```
+
+
+Exploring the paintings
+```{r}
+bob_ross_gathered %>% 
+  count(element, sort = TRUE) %>% 
+  head(20) %>% 
+  mutate(element = fct_reorder(element, n)) %>% 
+  ggplot(aes(element, n)) + 
+  geom_col() +
+  coord_flip()
+  
+```
+
+What are the most/least "crowded" paintings, with the most/least elements in them?
+```{r}
+bob_ross_gathered %>% 
+  add_count(episode) %>% 
+  arrange(desc(n))
+
+bob_ross_gathered %>% 
+  add_count(episode) %>% 
+  arrange(n)
+```
+
+How many paintings were made by Steve Ross
+```{r}
+bob_ross_gathered %>% 
+  filter(element == "Steve Ross")
+```
+
+
+How have Ross's paintings changed over time?
+```{r}
+# how many episodes per season?
+bob_ross_gathered %>% 
+  group_by(season) %>% 
+  summarise(episodes = n_distinct(episode)) %>% 
+  View()
+
+# agregate
+by_season_element <- bob_ross_gathered %>% 
+  group_by(season) %>% 
+  mutate(number_episodes = n_distinct(episode)) %>% 
+  count(season, element, number_episodes, sort = TRUE) %>% 
+  mutate(percent_included = n / number_episodes)
+  
+# how an element (here: Mountain) changed over time  
+by_season_element %>% 
+  filter(element == "Mountain") %>% 
+  ggplot(aes(season, percent_included)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent_format()) +
+  expand_limits(y = 0)
+
+
+# other approach
+by_season_element <- bob_ross_gathered %>% 
+  group_by(season) %>% 
+  mutate(number_episodes = n_distinct(episode)) %>% 
+  count(season, element, number_episodes, sort = TRUE) %>% 
+  mutate(percent_included = n / number_episodes) %>% 
+  group_by(element) %>% 
+  mutate(element_total = sum(n)) %>% 
+  ungroup()
+
+by_season_element %>% 
+  filter(element_total >= 100) %>% 
+  ggplot(aes(season, percent_included, color = element)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent_format()) +
+  expand_limits(y = 0) +
+  facet_wrap(~ element)
+
+# and another approach => many models with broom => https://r4ds.had.co.nz/many-models.html
+```
+
+
+Clustering
+
+What tends to appear togehter
+```{r}
+library(widyr)
+
+bob_ross_gathered %>% 
+  pairwise_cor(element, episode, sort = TRUE)
+
+# if there is a person on the painting there is also a fire
+# lets check
+bob_ross %>% 
+  filter(PERSON == 1) %>% 
+  pull(EPISODE, TITLE)
+
+# check for this => filter out paintings that have to few elements in them
+correlations <- bob_ross_gathered %>% 
+  add_count(element) %>% 
+  filter(n >= 10) %>% 
+  pairwise_cor(element, episode, sort = TRUE)
+
+correlations %>% 
+  filter(item1 == "Waves") %>% 
+  arrange(correlation) # waves do rarley appear with trees in the same picture
+
+
+correlations %>% 
+  filter(item1 == "River") %>% 
+  mutate(item2 = fct_reorder(item2, correlation)) %>% 
+  ggplot(aes(item2, correlation)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "What tends to appear with a river?", 
+       subtitle = "Among elements that appeared in at least 10 paintings")
+
+
+correlations %>% 
+  filter(item1 == "Snow") %>% 
+  mutate(item2 = fct_reorder(item2, correlation)) %>% 
+  ggplot(aes(item2, correlation)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "What tends to appear with snow?", 
+       subtitle = "Among elements that appeared in at least 10 paintings")
+
+```
+
+
+
+```{r}
+library(ggraph)
+library(igraph)
+
+set.seed(2019)
+correlations %>% 
+  head(100) %>% 
+  graph_from_data_frame() %>% 
+  ggraph() +
+  geom_edge_link(aes(alpha = correlation)) + 
+  geom_node_point() +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+```
+
+
+
+Principal Component Analysis
+
+What dimensions drive a lot of the variation among paintings?
+```{r}
+library(reshape2)
+library(tidytext)
+
+binary_matrix <- bob_ross_gathered %>% 
+  acast(title ~ element)
+
+View(binary_matrix)
+dim(binary_matrix)
+
+# balance/center the colums
+centered_matrix <- t(t(binary_matrix) - colMeans(binary_matrix))
+centered_matrix
+
+View(binary_matrix)
+View(centered_matrix)
+
+# svd with broom
+library(broom)
+svd_results <- svd(centered_matrix)
+svd_results
+
+# working on colums
+element_weights <- tidy(svd_results, matrix = "v") %>% 
+  mutate(element = colnames(binary_matrix)[column])
+
+element_weights %>% 
+  filter(PC == 1) %>% 
+  top_n(20, abs(value)) %>% 
+  mutate(element = fct_reorder(element, value)) %>% 
+  ggplot(aes(element, value)) +
+  geom_col() +
+  coord_flip()
+# first principle component is Mountain vs. Ocean & Deciduious
+# Which is the first question you should ask in order to receive the most information (explain a lot of variation?)?
+
+element_weights %>% 
+  filter(PC == 2) %>% 
+  top_n(20, abs(value)) %>% 
+  mutate(element = fct_reorder(element, value)) %>% 
+  ggplot(aes(element, value)) +
+  geom_col() +
+  coord_flip()
+# secend principel component is Trees vs. Clouds
+# vgl. MCA!
+
+# graph
+element_weights %>% 
+  filter(PC <= 4) %>% 
+  group_by(PC) %>% 
+  top_n(20, abs(value)) %>% 
+  ungroup() %>% 
+  mutate(element = reorder_within(element, value, PC)) %>% 
+  ggplot(aes(element, value)) +
+  geom_col() +
+  facet_wrap(~ PC, scales = "free") +
+  scale_x_reordered() +
+  coord_flip() +
+  labs(title = "First 4 principal components of elements of Bob Ross paintings",
+       subtitle = "1. Mountain/Conifer vs. Ocean \n2. Tree(s) especially decidious vs. Ocean \n3. River (Spring/Sommer) vs. Snow (Winter) \n4. Lake vs. River")
+```
+
+
+```{r}
+# working on rows (just as ever element has a strenght in principle componentes (PC) every painting does as well!
+# which painting is the strongest in explaining principle component 1? etc.)
+broom::tidy(svd_results, matrix = "u") %>% 
+  mutate(painting  = rownames(binary_matrix)[row])
+
+
+#### 48 min (https://www.youtube.com/watch?v=sD993H5FBIY)
+```
+
+
+
+
+
+
+
+
+
+
+
+
