@@ -41,8 +41,12 @@ David Robinson
 => check out: https://www.youtube.com/user/safe4democracy
 
 
-** 5) xgboost Tutorial
+**5) xgboost Tutorial 1**
 
 Check out: https://www.youtube.com/watch?v=gKyUucJwD8U
+
+**6) xboost Tutorial 2**
+
+Check out: https://www.youtube.com/watch?v=hpudxAmxHSM
 
 
