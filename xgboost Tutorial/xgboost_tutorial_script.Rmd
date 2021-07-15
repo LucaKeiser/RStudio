@@ -11,3 +11,75 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+"XGBoost is a state of art Machine Learning algorithm. It is well known for being faster to compute and its results more accurate than other well-known techniques like Neural Networks or Random Forest. XGBoost is also one of the most preferred algorithms in Data Science competitions around the world. Fortunately, it is a very accessible algorithm to grasp and implement." 
+
+
+Load the data set
+```{r}
+library(modeldata)
+
+data("stackoverflow")
+
+# take a look
+stackoverflow
+```
+
+## Set up
+Isolate x and y
+```{r}
+library(dplyr)
+y <- as.numeric(stackoverflow$Remote) - 1       # binary variable
+y
+
+x <- stackoverflow %>% 
+  select(- Remote)
+x                                               # remeber that xgboost does not deal with factors! => transform into a dummy variable
+```
+
+Transform factor into a dummy variable
+```{r}
+library(fastDummies)
+x <- dummy_cols(x, 
+                remove_first_dummy = TRUE)      # do not be fooled by the dummy varaible-trap
+x                                               # one factor (Country is still in there...)
+
+x <- x %>% 
+  select(- Country)
+x
+```
+
+Setting the parameters
+```{r}
+params <- list(set.seed = 1502, 
+               eval_metric = "auc",             # auc = area under the curve
+               objective = "binary:logistic")   # what is the kind of dependent variable?
+```
+
+
+## Running xgboost
+Just the basic steps -> we do not split the data set into training and testing data sets...
+```{r}
+library(xgboost)
+model <- xgboost(data = as.matrix(x),
+                 label = y,
+                 params = params,
+                 nrounds = 20,                 # how many rounds?
+                 verbose = 1)                  # how is xgboost doing?
+```
+
+Take a look a the shap values (which characteristics correlate the most?)
+```{r}
+xgb.plot.shap(data = as.matrix(x),
+              model = model,
+              top_n = 5)
+# the plot shows the top 5 most important predictors
+# blue = observations
+# xgboost is very good at fitting non-linear trends
+```
+
+Interpretation:
+"1) Remote workers earn on average less.
+ 2) Remote workers show lower career satisfaction.
+ 3) Medium-size companies, between 500 and 10k employees, are less likely to hire remote"
+ 
+Source: https://www.youtube.com/watch?v=gKyUucJwD8U
