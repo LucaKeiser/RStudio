@@ -125,9 +125,100 @@ train %>%
 
 
 train %>% 
+  # filter(availability_365 > 0) %>% 
   ggplot(aes(availability_365, price)) +
   geom_point() +
   scale_x_log10() +
   geom_smooth(method = "lm") # a tiny positive trend
+```
+
+
+Make a map!
+```{r}
+library(ggthemes)
+
+
+train %>% 
+  ggplot(aes(longitude, latitude, color = neighbourhood_group)) + 
+  geom_point(size = 0.75) + 
+  coord_fixed()
+
+
+train %>% 
+  ggplot(aes(longitude, latitude, color = exp(price) - 1)) +
+  scale_color_gradient2(low = "blue", high = "red",
+                        midpoint = 2,
+                        trans = "log10") +
+  geom_point(size = 1)
+
+
+# too many points?
+train %>% 
+  group_by(latitude = round(latitude, 2),
+           longitude = round(longitude, 2)) %>% 
+  ggplot(aes(longitude, latitude, color = exp(price) - 1)) +
+  scale_color_gradient2(low = "blue", high = "red",
+                        midpoint = 2,
+                        trans = "log10") +
+  geom_point(size = 1) +
+  theme_map()
+```
+
+get the shapefile of NYC with ggmap!
+```{r}
+library(ggmap)
+
+bbox <- c(left = -74.24285, bottom =  40.50641, right = -73.71690, top = 40.91306)
+
+### where the numbers come from
+# max(train$longitude)
+# min(train$longitude)
+# max(train$latitude)
+# min(train$latitude)
+
+nyc_map <- get_stamenmap(bbox, zoom = 11)
+ggmap(nyc_map)
+```
+
+Map it!
+```{r}
+  ggmap(nyc_map) +
+  geom_point(data = train,
+             aes(longitude, latitude, color = exp(price) - 1),
+             size = 0.5) + 
+  scale_color_gradient2(low = "royalblue1", mid = "forestgreen", high = "gold1",
+                        midpoint = 2.5,
+                        trans = "log10") +
+  theme_map()
+```
+
+Aggregate for a better visualization
+```{r}
+aggregated_long_lat <- train %>% 
+  group_by(latitude = round(latitude, 2),
+           longitude = round(longitude, 2)) %>% 
+  summarize(price = mean(price),
+            n = n()) %>% 
+  filter(n >= 5)
+
+ggmap(nyc_map) +
+  geom_point(data = aggregated_long_lat,
+             aes(longitude, latitude,
+                 color = exp(price) - 1,
+                 size = n)) + 
+  scale_color_gradient2(low = "blue", high = "red",
+                        midpoint = 2,
+                        trans = "log10",
+                        labels = dollar) +
+  scale_size_continuous(range = c(4, 8)) +
+  theme_map() + 
+  labs(color = "Price",
+       size = "Number of listings") # use Plot Zoom
+```
+
+
+
+```{r}
+View(aggregated_long_lat)
 ```
 
