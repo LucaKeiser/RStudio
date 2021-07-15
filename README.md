@@ -45,7 +45,7 @@ David Robinson
 
 Check out: https://www.youtube.com/watch?v=gKyUucJwD8U
 
-**6) xboost Tutorial 2**
+**6) xgboost Tutorial 2**
 
 Check out: https://www.youtube.com/watch?v=hpudxAmxHSM
 
