@@ -222,3 +222,5 @@ ggmap(nyc_map) +
 View(aggregated_long_lat)
 ```
 
+
+## 27:30
