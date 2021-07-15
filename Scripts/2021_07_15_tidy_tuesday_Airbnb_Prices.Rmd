@@ -1,0 +1,133 @@
+---
+title: "Predicting NYC Airbnb Prices"
+author: "Luca"
+date: "15/07/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(textrecipes)
+library(scales)
+
+theme_set(theme_light())
+```
+
+Set up parallel processing
+```{r}
+library(doParallel)
+
+n_cores <- detectCores() - 1 # -1 to prevent RStudio from crashing...
+registerDoParallel(cores = n_cores)
+```
+
+Get the data
+```{r}
+dataset <- read_csv("Data/NYC Airbnb Prices/train.csv") %>% 
+  mutate(price = log(price + 1))                              # transforming the price => more symmetric distribution
+holdout <- read_csv("Data/NYC Airbnb Prices/test.csv")
+
+set.seed(2021)
+
+spl <- initial_split(dataset, 0.75)
+train <- training(spl)
+test <- testing(spl)
+```
+
+Take a look
+```{r}
+train %>% 
+  count(name, sort = TRUE)
+
+
+train %>% 
+  ggplot(aes(price)) + 
+  geom_histogram()
+```
+
+create first summarizing function
+```{r}
+summarize_prices <- function(tbl) {
+  tbl %>% 
+    summarize(avg_price = exp(mean(price) - 1),
+              median_price = exp(median(price) - 1),
+              n = n()) %>% 
+    arrange(desc(n))
+}
+```
+
+```{r}
+train %>% 
+  summarize_prices()
+```
+
+first visualisations (looking for variation in the data)
+```{r}
+train %>% 
+  group_by(neighbourhood_group) %>% 
+  summarize_prices() %>% 
+  mutate(neighbourhood_group = fct_reorder(neighbourhood_group, median_price)) %>% 
+  ggplot(aes(median_price, neighbourhood_group)) + 
+  geom_col()
+
+train %>% 
+  mutate(neighbourhood_group = fct_reorder(neighbourhood_group, price)) %>% 
+  ggplot(aes(exp(price), neighbourhood_group)) + 
+  geom_boxplot() + 
+  scale_x_log10()
+
+train %>% 
+  mutate(neighbourhood = fct_lump(neighbourhood, 40),    # too many neighbourhoods => just take top 40
+         neighbourhood = fct_reorder(neighbourhood, price)) %>% 
+  ggplot(aes(exp(price), neighbourhood)) + 
+  geom_boxplot() + 
+  scale_x_log10()
+
+
+train %>% 
+  mutate(room_type = fct_reorder(room_type, price)) %>% 
+  ggplot(aes(exp(price), room_type)) +
+  geom_boxplot() +
+  scale_x_log10()
+
+train %>% 
+  sample_n(3000) %>% 
+  ggplot(aes(minimum_nights, price)) + 
+  geom_point() +
+  scale_x_log10() + 
+  geom_smooth(method = "loess") # not really a trend visible...
+
+train %>% 
+  ggplot(aes(number_of_reviews, price)) +
+  geom_point() + 
+  scale_x_log10() +
+  geom_smooth(method = "lm") # flat...
+
+train %>% 
+  ggplot(aes(reviews_per_month, price)) +
+  geom_point() + 
+  scale_x_log10() +
+  geom_smooth(method = "lm") # still flat...
+
+
+train %>% 
+  ggplot(aes(calculated_host_listings_count, price)) +
+  geom_point() +
+  scale_x_log10() +
+  geom_smooth(method = "lm") # a tiny positive trend
+
+
+train %>% 
+  ggplot(aes(availability_365, price)) +
+  geom_point() +
+  scale_x_log10() +
+  geom_smooth(method = "lm") # a tiny positive trend
+```
+
