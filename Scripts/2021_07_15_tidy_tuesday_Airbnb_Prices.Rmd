@@ -16,6 +16,7 @@ library(tidyverse)
 library(tidymodels)
 library(textrecipes)
 library(scales)
+library(stacks)
 
 theme_set(theme_light())
 ```
@@ -216,11 +217,20 @@ ggmap(nyc_map) +
        size = "Number of listings") # use Plot Zoom
 ```
 
-
-
 ```{r}
-View(aggregated_long_lat)
+train %>% 
+  ggplot(aes(last_review, price)) +
+  geom_point() +
+  geom_smooth(method = "lm")
 ```
 
 
-## 27:30
+
+Start modelling 
+
+Jump into xgboost! # 28:00
+
+```{r}
+library(xgboost)
+```
+
