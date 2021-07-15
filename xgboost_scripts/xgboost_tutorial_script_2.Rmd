@@ -99,6 +99,143 @@ vb_df %>%
 ```
 
 
+## Build a model
+```{r}
+library(tidymodels)
+
+#1 split the data into a testing and training data
+set.seed(123)
+vb_split <- initial_split(vb_df, strata = win)
+vb_train <- training(vb_split)
+vb_test <- testing(vb_split)
+
+# Note: here we do not take care of the recipe => we leave the data as it is
+
+#2 Model specification => tune model parameters
+# hyperparameters cannot be trained by the model, so we have to take care of them (tune() them)
+
+xgb_spec <- boost_tree(trees = 1000,                                            # make sure you have enough trees
+           tree_depth = tune(), min_n = tune(), loss_reduction = tune(),        # how complex is the model going to be?
+           sample_size = tune(), mtry = tune(),                                 # degree of randomness?
+           learn_rate = tune()) %>% 
+  # 6 hyperparameters to tune!
+  set_engine("xgboost") %>%                                                     # it is a xgboost-model => engine = "xgboost"
+  set_mode("classification")                                                    # classification or regression
+                                                                                # we are trying to say which team wins/loses
+                                                                                # given the gameplay-stats => classification
+xgb_spec                                                                        # "summary"
+```
+
+What values are we going to try? => choose a grid
+```{r}
+xbg_grid <- grid_latin_hypercube(tree_depth(),
+                     min_n(),
+                     loss_reduction(),
+                     sample_size = sample_prop(),                              # needs a proportion
+                     finalize(mtry(), vb_train),                               # how many predictors should be sample? What 
+                     learn_rate(),                                             # is the biggest number? => we don not know!
+                     size = 20)                                                # use the training-data to finalize!  
+xbg_grid
+# we are going to train the models with these 20 possible models and their parameters
+```
 
 
+Train the model
+```{r}
+xgb_wf <- workflow() %>% 
+  add_formula(win ~ .) %>%                                                     # explain win by everything else
+  add_model(xgb_spec)
 
+xgb_wf
+```
+
+```{r}
+set.seed(123)
+vb_folds <- vfold_cv(vb_train, strata = win)                                   # cross validation
+vb_folds
+
+# now the data is ready to be tuned
+```
+
+
+```{r}
+# set up parallel processing
+library(doParallel)
+
+n_cores <- detectCores() - 1                                                  # -1 to prevent RStudio from crashing...
+registerDoParallel(cores = n_cores)
+
+set.seed(234)
+xbg_res <- tune_grid(xgb_wf,
+          resamples = vb_folds,
+          grid = xbg_grid,
+          control = control_grid(save_pred = TRUE))
+
+# what is happening in the background?
+# we are tuning the workflow we defined before (xbg_wf)
+# for each of the 10 folds we train each of the 20 models => a lot of computation needs to be done!
+# at the end we evaluate which ones are the best
+```
+
+## Explore the results
+
+```{r}
+xbg_res %>% 
+  collect_metrics() %>% 
+  filter(.metric == "roc_auc") %>% 
+  select(mean, mtry:sample_size) %>% 
+  pivot_longer(mtry:sample_size, names_to = "parameter", values_to = "value") %>% 
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~ parameter, scales = "free_y")
+
+# remeber we tried a space-filling design => we cannot pick the best value like in a regular grid
+```
+
+```{r}
+show_best(xbg_res, "roc_auc") %>% 
+  view()
+
+best_auc <- select_best(xbg_res, "roc_auc")
+
+final_xgb <- finalize_workflow(xgb_wf, best_auc)
+final_xgb
+```
+
+
+```{r}
+library(vip)
+
+final_xgb %>% 
+  fit(data = vb_train) %>% 
+  pull_workflow_fit() %>% 
+  vip(geom = "point")
+
+# what are the characteristics that contributed the most to the classification (win vs. lose)?
+# => kills, errors, attacks, blocks etc.
+```
+
+
+We were fitting on the training-set and evaluating on the testing-set
+
+```{r}
+final_res <- last_fit(final_xgb, vb_split)
+
+final_res %>% 
+  collect_metrics()
+```
+
+```{r}
+final_res %>% 
+  collect_predictions()
+# predcitions on the testing-data
+
+final_res %>% 
+  collect_predictions() %>% 
+  conf_mat(win, .pred_class)
+
+final_res %>% 
+  collect_predictions() %>% 
+  roc_curve(win, .pred_win) %>% 
+  autoplot()
+```
