@@ -40,7 +40,7 @@ Transform factor into a dummy variable
 ```{r}
 library(fastDummies)
 x <- dummy_cols(x, 
-                remove_first_dummy = TRUE)      # do not be fooled by the dummy varaible-trap
+                remove_first_dummy = TRUE)      # do not be fooled by the dummy variable-trap
 x                                               # one factor (Country is still in there...)
 
 x <- x %>% 
