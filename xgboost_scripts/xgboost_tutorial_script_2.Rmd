@@ -1,0 +1,104 @@
+---
+title: "xboost_tutorial_2"
+author: "Luca"
+date: "15/07/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE,
+                      message = FALSE, echo = TRUE)
+```
+
+Load packages
+```{r}
+library(tidyverse)
+
+```
+
+
+Get the data
+```{r}
+vb_matches <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-19/vb_matches.csv', guess_max = 76000)
+
+View(vb_matches)
+```
+
+The goal is to create a xgboost-model to predict the wins/loses based on the characteristics in the data set (different variables)
+
+
+## Reshape the data
+```{r}
+
+# we look at teams not single players...
+
+vb_parsed <- vb_matches %>% 
+  transmute(circuit,
+            gender,
+            year,
+            w_attacks = w_p1_tot_attacks + w_p2_tot_attacks,
+            w_kills = w_p1_tot_kills + w_p2_tot_kills,
+            w_errors = w_p1_tot_errors + w_p2_tot_errors,
+            w_aces = w_p1_tot_aces + w_p2_tot_aces,
+            w_serve_errors = w_p1_tot_serve_errors + w_p2_tot_serve_errors,
+            w_blocks = w_p1_tot_blocks + w_p2_tot_blocks,
+            w_digs = w_p1_tot_digs + w_p2_tot_digs,
+            l_attacks = l_p1_tot_attacks + l_p2_tot_attacks,
+            l_kills = l_p1_tot_kills + l_p2_tot_kills,
+            l_errors = l_p1_tot_errors + l_p2_tot_errors,
+            l_aces = l_p1_tot_aces + l_p2_tot_aces,
+            l_serve_errors = l_p1_tot_serve_errors + l_p2_tot_serve_errors,
+            l_blocks = l_p1_tot_blocks + l_p2_tot_blocks,
+            l_digs = l_p1_tot_digs + l_p2_tot_digs) %>% 
+  na.omit()                                                                         # get rid of NAs
+```
+
+```{r}
+# separte losers and winners (losers and winners are on the same rows...)
+# => we want one row per outcome => make 2 data frames
+
+winners <- vb_parsed %>% 
+  select(circuit, gender, year,
+         w_attacks:w_digs) %>% 
+  rename_with(~ str_remove_all(., "w_"), w_attacks:w_digs) %>% 
+  mutate(win = "win")
+
+losers <- vb_parsed %>% 
+  select(circuit, gender, year,
+         l_attacks:l_digs) %>% 
+  rename_with(~ str_remove_all(., "l_"), l_attacks:l_digs) %>% 
+  mutate(win = "lose")
+
+winners
+losers
+
+```
+
+Bind the data sets
+```{r}
+vb_df <- bind_rows(winners, losers) %>% 
+  mutate_if(is.character, factor)
+
+View(vb_df)
+```
+
+Visualise the data
+```{r}
+vb_df %>% 
+  pivot_longer(attacks:digs, names_to = "stat", values_to = "value") %>% 
+  ggplot(aes(gender, value, color = win, fill = win)) +
+  geom_boxplot(alpha = 0.25) +
+  facet_wrap(~ stat, scales = "free_y", nrow = 2) +
+  labs(y = NULL, color = NULL, fill = NULL)
+
+# which variables bring in the most variation?
+# aces, blocks, errors, kills
+```
+
+
+
+
+
