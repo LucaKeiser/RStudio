@@ -39,3 +39,10 @@ etc.
 
 David Robinson
 => check out: https://www.youtube.com/user/safe4democracy
+
+
+** 5) xgboost Tutorial
+
+Check out: https://www.youtube.com/watch?v=gKyUucJwD8U
+
+
