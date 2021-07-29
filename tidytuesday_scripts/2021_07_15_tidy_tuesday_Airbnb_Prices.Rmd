@@ -224,6 +224,36 @@ train %>%
   geom_smooth(method = "lm")
 ```
 
+```{r}
+train %>% 
+  mutate(host_id = factor(host_id),
+         host_id = fct_lump(host_id, 50),
+         host_id = fct_reorder(host_id, price)) %>%
+  ggplot(aes(price, host_id)) +
+  geom_boxplot()
+  
+
+```
+
+
+Text analysis
+```{r}
+library(tidytext)
+
+train %>% 
+  unnest_tokens(word, name) %>% 
+  count(word, sort = TRUE)
+
+train %>% 
+  unnest_tokens(word, name) %>% 
+  group_by(word) %>% 
+  summarize_prices() %>% 
+  head(50) %>% 
+  mutate(word = fct_reorder(word, avg_price)) %>% 
+  ggplot(aes(avg_price, word, size = n)) +
+  geom_point()
+```
+
 
 
 Start modelling 
@@ -232,5 +262,202 @@ Jump into xgboost! # 28:00
 
 ```{r}
 library(xgboost)
+
+# model set up
+
+mset <- metric_set(rmse)
+
+grid_control <- control_grid(save_pred = TRUE,
+                             save_workflow = TRUE,
+                             extract = extract_model)
+set.seed(2021)
+train_fold5 <- train %>% 
+  vfold_cv(5)
 ```
+
+
+```{r}
+# prep function
+prep_juice <- function(d) juice(prep(d))
+
+
+xg_rec <- recipe(price ~ minimum_nights + room_type + number_of_reviews,
+       data = train) %>% 
+  # step_log(all_numeric_predictors(), offset = 1) %>% 
+  step_dummy(all_nominal_predictors())
+
+xg_mod <- boost_tree("regression",
+                     mtry = tune(),
+                     trees = tune(),
+                     learn_rate = 0.01) %>% 
+  set_engine("xgboost")
+
+xg_wf <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_mod)
+
+xg_tune <- xg_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(mtry = c(2, 3), trees = seq(50, 1000, 50)))
+
+autoplot(xg_tune)
+
+xg_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+
+# 0.535 with minimum version
+```
+
+```{r}
+xg_rec <- recipe(price ~ minimum_nights + room_type + number_of_reviews +
+                   latitude + longitude + neighbourhood_group,
+       data = train) %>% 
+  # step_log(all_numeric_predictors(), offset = 1) %>% 
+  step_dummy(all_nominal_predictors())
+
+xg_mod <- boost_tree("regression",
+                     mtry = tune(),
+                     trees = tune(),
+                     learn_rate = 0.01) %>% 
+  set_engine("xgboost")
+
+xg_wf <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_mod)
+
+xg_tune <- xg_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(mtry = c(2, 4, 6), trees = seq(50, 1000, 50)))
+
+autoplot(xg_tune)
+
+xg_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+
+# 0.468 once we add latitude, longitude and neighbourhood_group
+```
+
+```{r}
+xg_rec <- recipe(price ~ minimum_nights + room_type + number_of_reviews +
+                   latitude + longitude + neighbourhood_group + reviews_per_month +
+                   calculated_host_listings_count + availability_365,
+       data = train) %>% 
+  # step_log(all_numeric_predictors(), offset = 1) %>% 
+  step_dummy(all_nominal_predictors())
+
+xg_mod <- boost_tree("regression",
+                     mtry = tune(),
+                     trees = tune(),
+                     learn_rate = 0.01) %>% 
+  set_engine("xgboost")
+
+xg_wf <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_mod)
+
+xg_tune <- xg_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(mtry = c(2, 4, 6), trees = seq(50, 800, 50))) # make modelling a bit faster...
+
+autoplot(xg_tune)
+
+xg_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+
+# 0.444 once we add numeric variables like reviews per month
+```
+
+```{r}
+xg_rec <- recipe(price ~ minimum_nights + room_type + number_of_reviews +
+                   latitude + longitude + neighbourhood_group + reviews_per_month +
+                   calculated_host_listings_count + availability_365 + last_review,
+       data = train) %>% 
+  step_mutate(last_review = coalesce(as.integer(Sys.Date() - last_review), 0)) %>% 
+  step_dummy(all_nominal_predictors())
+
+xg_mod <- boost_tree("regression",
+                     mtry = tune(),
+                     trees = tune(),
+                     learn_rate = 0.01) %>% 
+  set_engine("xgboost")
+
+xg_wf <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_mod)
+
+xg_tune <- xg_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(mtry = c(3, 5, 7), trees = seq(250, 800, 25)))
+
+autoplot(xg_tune)
+
+xg_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+```
+
+Finalize version without categorical variables:
+```{r}
+xg_fit <- xg_wf %>% 
+  finalize_workflow(select_best(xg_tune)) %>% 
+  fit(train)
+  
+xg_fit %>% 
+  augment(test) %>% 
+  rmse(price, .pred)
+
+importances <- xgboost::xgb.importance(mode = xg_fit$fit$fit$fit)
+
+importances %>% 
+  mutate(Feature = fct_reorder(Feature, Gain)) %>% 
+  ggplot(aes(Gain, Feature)) + 
+  geom_col()
+
+# what are the most important characteristics of an Airbnb in terms of price?
+```
+
+Some more modifications
+```{r}
+xg_rec <- recipe(price ~ minimum_nights + room_type + number_of_reviews +
+                   latitude + longitude + neighbourhood_group + reviews_per_month +
+                   calculated_host_listings_count + availability_365 + last_review,
+       data = train) %>% 
+  step_mutate(is_manhattan = neighbourhood_group == "Manhattan") %>% 
+  step_rm(neighbourhood_group) %>% 
+  step_mutate(last_review = coalesce(as.integer(Sys.Date() - last_review), 0)) %>% 
+  step_dummy(all_nominal_predictors())
+
+xg_mod <- boost_tree("regression",
+                     mtry = tune(),
+                     trees = tune(),
+                     learn_rate = 0.01) %>% 
+  set_engine("xgboost")
+
+xg_wf <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_mod)
+
+xg_tune <- xg_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(mtry = c(4, 5, 6, 7), trees = seq(250, 1000, 25)))
+
+autoplot(xg_tune)
+
+xg_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+```
+
+
+
+# 59:00
+
 
