@@ -187,7 +187,7 @@ Map it!
   geom_point(data = train,
              aes(longitude, latitude, color = exp(price) - 1),
              size = 0.5) + 
-  scale_color_gradient2(low = "royalblue1", mid = "forestgreen", high = "gold1",
+  scale_color_gradient2(low = "blue", mid = "orange", high = "red",
                         midpoint = 2.5,
                         trans = "log10") +
   theme_map()
@@ -207,7 +207,7 @@ ggmap(nyc_map) +
              aes(longitude, latitude,
                  color = exp(price) - 1,
                  size = n)) + 
-  scale_color_gradient2(low = "blue", high = "red",
+  scale_color_gradient2(low = "blue", mid = "orange", high = "red",
                         midpoint = 2,
                         trans = "log10",
                         labels = dollar) +
