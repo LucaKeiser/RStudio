@@ -31,9 +31,9 @@ registerDoParallel(cores = n_cores)
 
 Get the data
 ```{r}
-dataset <- read_csv("Data/NYC Airbnb Prices/train.csv") %>% 
+dataset <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Airbnb/train.csv") %>% 
   mutate(price = log(price + 1))                              # transforming the price => more symmetric distribution
-holdout <- read_csv("Data/NYC Airbnb Prices/test.csv")
+holdout <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Airbnb/test.csv")
 
 set.seed(2021)
 
