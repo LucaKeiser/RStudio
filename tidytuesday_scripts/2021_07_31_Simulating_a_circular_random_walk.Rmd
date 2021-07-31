@@ -1,0 +1,8 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+The Riddler: Simulating a circular random walk
