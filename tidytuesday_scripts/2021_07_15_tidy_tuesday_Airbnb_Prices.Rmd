@@ -457,7 +457,34 @@ xg_tune %>%
 ```
 
 
+Linear model
+Linear version on the categorical variables
 
-# 59:00
+```{r}
+# set up
 
+lin_rec <- recipe(price ~ name + room_type + 
+                    latitude + longitude + neighbourhood_group + 
+                    neighbourhood + host_id,
+                  data = train) %>% 
+  # step_log(all_numeric_predictors(), offset = 1) %>% 
+  step_mutate(host_id = factor(host_id)) %>% 
+  step_other(host_id, neighbourhood, threshold = tune()) %>% 
+  step_dummy(all_nominal_predictors())
 
+lin_mod <- linear_reg(penalty = tune()) %>% 
+  set_engine("glmnet")
+
+lin_wf <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_mod)
+
+lin_tune <- lin_wf %>% 
+  tune_grid(train_fold5,
+            metrics = mset,
+            grid = crossing(penatly = 10 ^ seq(-7, -1, 1),
+                            treshold = c(0.003, 0.01, 0.03)))
+
+```
+
+# 1:11
