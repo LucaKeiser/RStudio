@@ -5,4 +5,152 @@ editor_options:
   chunk_output_type: console
 ---
 
-The Riddler: Simulating a circular random walk
+# The Riddler: Simulating a circular random walk
+
+To celebrate Thanksgiving, you and 19 of your family members are seated at a circular table (socially distanced, of course). Everyone at the table would like a helping of cranberry sauce, which happens to be in front of you at the moment.
+
+Instead of passing the sauce around in a circle, you pass it randomly to the person seated directly to your left or to your right. They then do the same, passing it randomly either to the person to their left or right. This continues until everyone has, at some point, received the cranberry sauce.
+
+Of the 20 people in the circle, who has the greatest chance of being the last to receive the cranberry sauce?
+
+```{r}
+library(tidyverse)
+library(scales)
+```
+
+
+## Simulation in R
+
+0 is you, 1 is the person to your right, -1 is the person to your left
+
+```{r}
+sample <- sample(c(1, -1), 20, replace = TRUE)
+
+cumsum(sample)
+```
+
+Circular walk
+0 is you, 1 is the person to your right, 19 is the person to your left (imagine some kind of clock...)
+
+```{r}
+cumsum(sample(c(-1, 1), 100, replace = TRUE)) %% 20 # mod 20
+# wich person gets the sauce?
+```
+
+create circular walk function
+```{r}
+circular_walk <- function(n) {
+  cumsum(sample(c(-1, 1), n, replace = TRUE)) %% 20
+}
+
+circular_walk(20)
+```
+
+another way to do it...
+```{r}
+crossing(trial = 1:1000,
+         step  = 1:100) %>% 
+  mutate(direction = sample(c(-1, 1), n(), replace = TRUE)) %>% 
+  group_by(trial) %>% 
+  mutate(position = cumsum(direction) %% 20) %>% 
+  ungroup() %>% 
+  distinct(trial, position, .keep_all = TRUE) %>% 
+  filter(position != 0) %>%  # you always get it first... 
+  View()
+
+# how many steps does it take to get to a certain position (person)? 
+# 1000 trials with 100 steps each (note: not every person gets the sauce in every trial)
+
+
+crossing(trial = 1:1000,
+         step  = 1:1000) %>% 
+  mutate(direction = sample(c(-1, 1), n(), replace = TRUE)) %>% 
+  group_by(trial) %>% 
+  mutate(position = cumsum(direction) %% 20) %>% 
+  ungroup() %>% 
+  distinct(trial, position, .keep_all = TRUE) %>% 
+  filter(position != 0) %>%  # you always get it first... 
+  View()
+# with 1000 steps per trail every person gets it
+```
+
+create the simulation (1000 trials each with 1000 steps)
+```{r}
+sim <- crossing(trial = 1:20000,
+                step = 1:1000) %>% 
+  mutate(direction = sample(c(-1, 1), n(), replace = TRUE)) %>% 
+  group_by(trial) %>%
+  mutate(seat = cumsum(direction) %% 20) %>% 
+  ungroup() %>% 
+  distinct(trial, seat, .keep_all = TRUE) %>% 
+  filter(seat != 0)
+
+
+sim %>% 
+  group_by(seat) %>% 
+  summarize(avg_step = mean(step)) %>% 
+  ggplot(aes(seat, avg_step)) + 
+  geom_line() + 
+  expand_limits(y = 0)
+
+# how many steps does it take on average to get to a certain seat?
+```
+
+
+```{r}
+sim <- crossing(trial = 1:100000,
+                step = 1:1000) %>% 
+  mutate(direction = sample(c(-1, 1), n(), replace = TRUE)) %>% 
+  group_by(trial) %>%
+  mutate(seat = cumsum(direction) %% 20) %>% 
+  ungroup() %>% 
+  distinct(trial, seat, .keep_all = TRUE) %>% 
+  filter(seat != 0)
+
+by_seat <- sim %>% 
+  group_by(trial) %>% 
+  mutate(is_last = row_number() == 19) %>% 
+  group_by(seat) %>% 
+  summarize(avg_step = mean(step),
+            pct_last = mean(is_last))
+
+
+by_seat %>% 
+  ggplot(aes(seat, avg_step)) +
+  geom_line() +
+  expand_limits(y = 0) + 
+  labs(x = "Seat",
+       y = "Average number of steps to reach this seat")
+# peak: seat 10
+
+by_seat %>% 
+  ggplot(aes(seat, pct_last)) +
+  geom_line() +
+  geom_hline(yintercept = 1/19, lty = 2, color = "red") + # 1/19 => same change for everyone...
+  scale_y_continuous(labels = percent) + 
+  expand_limits(y = 0)
+# no remarkable difference between the seats => the probability of being last does not chance => that is interesting! 
+
+```
+
+Let's look at the distribution for each seat
+```{r}
+sim %>% 
+  ggplot(aes(step)) +
+  geom_histogram() +
+  facet_wrap(~ seat) + 
+  labs(x = "Steps on which the person gets the sauce")
+```
+
+```{r}
+last_steps <- sim %>% 
+  group_by(trial) %>% 
+  slice(19) %>%  # takes every 19th row
+  ungroup() %>% 
+  select(trial, last_seat = seat)
+
+last_steps
+```
+
+# 25:00
+
