@@ -10,3 +10,45 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
+```{r}
+library(tidyverse)
+library(lubridate)
+library(scales)
+theme_set(theme_light())
+
+bike_traffic_raw <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-04-02/bike_traffic.csv")
+
+
+bike_traffic <- bike_traffic_raw %>%
+  mutate(date = mdy_hms(date))
+
+
+bike_traffic %>% 
+  ggplot(aes(date, fill = is.na(bike_count))) +
+  geom_histogram() +
+  facet_grid(crossing ~ direction)
+```
+
+
+# When in the day do we see bikers/pedestrians?
+
+```{r}
+bike_traffic %>% 
+  group_by(hour = hour(date)) %>% 
+  summarise_at(vars(bike_count, ped_count), sum, na.rm = TRUE) %>% 
+  pivot_longer(cols = c("ped_count", "bike_count"), names_to = "type", values_to = "count") %>% 
+  ggplot(aes(hour, count, color = type)) +
+  geom_line() +
+  geom_point()
+
+bike_traffic %>% 
+  group_by(hour = hour(date),
+           crossing) %>% 
+  summarise_at(vars(bike_count, ped_count), sum, na.rm = TRUE) %>% 
+  ggplot(aes(hour, bike_count, color = crossing)) +
+  geom_line() +
+  geom_point()
+```
+
+
+
