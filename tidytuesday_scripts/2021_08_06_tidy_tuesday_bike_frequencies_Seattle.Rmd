@@ -138,10 +138,54 @@ bike_traffic %>%
 ```
 
 ```{r}
-
+bike_traffic %>% 
+  filter(date > "2014-01-01" & date < "2017-01-01") %>% 
+  filter(bike_count <= 2000) %>% 
+  group_by(crossing,
+           month = month(date, label = TRUE)) %>% 
+  summarise(total_bikes = sum(bike_count)) %>% 
+  mutate(pct_bikes = total_bikes / sum(total_bikes)) %>% 
+  ggplot(aes(month, pct_bikes, color = crossing, group = crossing)) +
+  geom_line() +
+  scale_y_continuous(labels = percent_format()) +
+  labs(title = "When in the week do people bike?",
+       subtitle = "Based on Seattle crossings from 2014 - 2016",
+       x = "",
+       y = "% of bikes") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
+### What directions do people commute by bike?
+
+```{r}
+bike_by_direction_hour_crossing <- bike_traffic %>%
+  filter(crossing != "MTS Trail",
+         !wday(date, label = TRUE) %in% c("Sat", "Sun"),
+         direction %in% c("North", "South")) %>%
+  mutate(hour = hour(date)) %>%
+  group_by(crossing,
+           direction,
+           hour) %>%
+  summarize(bike_count = sum(bike_count, na.rm = TRUE)) %>%
+  mutate(pct_bike = bike_count / sum(bike_count))
+
+
+bike_by_direction_hour_crossing %>%
+  group_by(crossing) %>%
+  mutate(average_hour = sum((hour * pct_bike)[direction == "North"])) %>%
+  ungroup() %>%
+  mutate(crossing = fct_reorder(crossing, average_hour)) %>%
+  ggplot(aes(hour, pct_bike, color = direction)) +
+  geom_line() +
+  facet_grid(crossing ~ .) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(x = "Time of day",
+       y = "% of bike crossings happening in this hour",
+       title = "In which directions do people commute by bike?",
+       subtitle = "Based on weekday crossings at six Seattle locations from 2014-February 2019",
+       color = "Direction")
+```
 
 
 
