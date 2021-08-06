@@ -1,0 +1,12 @@
+---
+title: "Tidy tuesday bike frequencies seattle"
+author: "Luca"
+date: "06/08/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
