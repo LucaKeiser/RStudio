@@ -42,13 +42,112 @@ bike_traffic %>%
   geom_point()
 
 bike_traffic %>% 
-  group_by(hour = hour(date),
-           crossing) %>% 
+  group_by(crossing,
+           hour = hour(date)) %>% 
   summarise_at(vars(bike_count, ped_count), sum, na.rm = TRUE) %>% 
   ggplot(aes(hour, bike_count, color = crossing)) +
   geom_line() +
   geom_point()
+
+
+bike_traffic %>% 
+  group_by(crossing,
+           hour = hour(date)) %>% 
+  summarize_at(vars(bike_count, ped_count), sum, na.rm = TRUE) %>% 
+  mutate(pct_bike = bike_count / sum(bike_count)) %>% 
+  ggplot(aes(hour, pct_bike, color = crossing)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = percent_format()) +
+  labs(title = "When in the day do people bike trough these Seattle crossings?",
+       subtitle = "Based on crossings from 2013 - 2019",
+       y = "",
+       x = "Count",
+       color = "Crossing")
 ```
+
+
+```{r}
+bike_traffic %>% 
+  mutate(hour = hour(date)) %>% 
+  mutate(time_window = case_when(
+    between(hour, 7, 10) ~ "Morning Commute",
+    between(hour, 11, 15) ~ "Midday",
+    between(hour, 16, 18) ~ "Evening Commute",
+    TRUE ~ "Night"
+  )) %>% 
+  group_by(crossing, 
+           time_window) %>% 
+  summarize(pct_missing = mean(is.na(bike_count) * 100),
+            bike_count = sum(bike_count, na.rm = TRUE))
+  
+bike_by_timewindow <- bike_traffic %>% 
+  mutate(hour = hour(date)) %>% 
+  mutate(time_window = case_when(
+    between(hour, 7, 10) ~ "MorningCommute",
+    between(hour, 11, 15) ~ "Midday",
+    between(hour, 16, 18) ~ "EveningCommute",
+    TRUE ~ "Night"
+  )) %>% 
+  group_by(crossing, 
+           time_window) %>% 
+  summarize(number_missing = sum(is.na(bike_count)),
+            bike_count = sum(bike_count, na.rm = TRUE)) %>%  
+  mutate(pct_bike = bike_count / sum(bike_count))
+
+bike_by_timewindow %>% 
+  select(-number_missing, -bike_count) %>% 
+  spread(time_window, pct_bike) %>% 
+  mutate(TotalCommute = EveningCommute + MorningCommute) %>% 
+  arrange(desc(TotalCommute))
+  
+bike_by_timewindow %>% 
+  ggplot(aes(time_window, pct_bike)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~ crossing)
+
+
+bike_by_timewindow %>% 
+  group_by(crossing) %>% 
+  summarize(total_bikes = sum(bike_count),
+            pct_commute = sum(bike_count[str_detect(time_window, "Commute")]) / total_bikes) %>% 
+  ggplot(aes(total_bikes, pct_commute)) + 
+  geom_point() +
+  scale_x_log10()
+```
+
+
+```{r}
+bike_traffic %>% 
+  group_by(crossing,
+           weekday = wday(date, label = TRUE),
+           hour = hour(date)) %>% 
+  summarise(total_bikes = sum(bike_count, na.rm = TRUE)) %>% 
+  group_by(crossing) %>% 
+  mutate(pct_bike = total_bikes / sum(total_bikes, na.rm = TRUE)) %>% 
+  ggplot(aes(hour, pct_bike, color = crossing)) +
+  geom_line(show.legend = FALSE) +
+  scale_y_continuous(labels = percent_format()) +
+  facet_wrap(crossing ~ weekday) +
+  labs(title = "When in the week do people bike?",
+       subtitle = "Based on Seattle crossings from 2013 - 2019",
+       x = "Time of week",
+       y = "")
+  
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
 
 
 
