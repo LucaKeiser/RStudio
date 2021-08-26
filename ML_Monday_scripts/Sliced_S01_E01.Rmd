@@ -3,5 +3,539 @@ title: "Sliced S01E01"
 author: "Luca"
 date: "26/08/2021"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
+
+In this episode of SLICED, contestants are challenged to predict the **"geek" ratings** for board games on BoardGameGeek.com. Audience members can follow along, too.
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(scales)
+library(stacks)
+library(textrecipes)
+
+
+theme_set(theme_light())
+```
+
+
+Parallel Processing
+```{r}
+library(doParallel)
+n_cores <- detectCores() - 1 # -1 to prevent RStudio from crashing...
+
+doParallel::registerDoParallel(cores = n_cores)
+```
+
+
+### Load data
+```{r}
+# one tidy-step is made here and not within a recipe
+full_data <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Sliced S01E01/train.csv") %>% 
+  unite(category, starts_with("category"), sep = ", ", na.rm = TRUE)
+
+holdout <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Sliced S01E01/test.csv") %>% 
+  unite(category, starts_with("category"), sep = ", ", na.rm = TRUE)
+```
+
+Create train/test-data set
+```{r}
+set.seed(2021)
+
+spl <- initial_split(full_data, prop = 0.8)
+train <- training(spl)
+test <- testing(spl)
+
+```
+
+### Explore first
+```{r}
+train %>% 
+  ggplot(aes(geek_rating)) +
+  geom_histogram()
+
+# possible transformation
+train %>% 
+  ggplot(aes(geek_rating - min(geek_rating))) +
+  geom_histogram() +
+  scale_x_log10()
+```
+
+Identify good predictors (linear effects)
+=> continuous variables
+```{r}
+# min_players
+train %>% 
+  mutate(min_players = pmin(min_players, 5)) %>% # from 0 to 5
+  ggplot(aes(min_players, geek_rating, group = min_players)) +
+  geom_boxplot()
+
+
+# num_votes
+train %>% 
+  ggplot(aes(num_votes, geek_rating)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10()
+
+# owned
+train %>% 
+  ggplot(aes(owned, geek_rating)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10()
+
+# min_time
+train %>% 
+  ggplot(aes(min_time, geek_rating)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10()
+# test
+cor.test(log(train$min_time + 1), train$geek_rating)
+
+# max_time
+train %>% 
+  ggplot(aes(max_time, geek_rating)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10()
+# test
+cor.test(log(train$max_time + 1), train$geek_rating)
+
+# age
+train %>% 
+  ggplot(aes(age, geek_rating)) +
+  geom_point() +
+  scale_x_log10() +
+  geom_smooth(method = "lm", se = FALSE)
+# test
+cor.test(log(train$age + 1), train$geek_rating)
+
+# year
+train %>% 
+  group_by(year) %>% 
+  summarize(median_rating = median(geek_rating),
+            n = n()) %>% 
+  filter(n >= 20) %>% 
+  ggplot(aes(year, median_rating)) +
+  geom_line() +
+  expand_limits(y = 0)
+```
+
+=> discrete variables
+```{r}
+train %>% 
+  separate_rows(mechanic, sep = ", ") %>% 
+  count(mechanic, sort = TRUE)
+
+# how do these effect geek_rating?
+```
+
+
+
+## Modelling!
+
+### linear models
+
+```{r}
+sd(train$geek_rating)
+# 0.48 is a "dummy" model! How much better can we do?
+```
+
+```{r}
+# create a metric set
+mset <- metric_set(rmse) # we always use "root mean squared error"
+
+# create data set for cross validation
+# => splitting into 10 training and testing sets!
+set.seed(2021)
+train_fold <- train %>% 
+  vfold_cv(10)
+```
+
+
+
+#### 1. linear model
+```{r}
+# owned as the only predictor
+lin_spec <- linear_reg() %>% 
+  set_engine("lm")
+
+# data cleaning with a recipe (instead of tidyr)
+lin_rec <- recipe(geek_rating ~ owned, data = train) %>% 
+  step_log(owned, base = 2, offset = 1)        # first cleaning step (log2(owned + 1)) => "correct" distribution (+ 1 in case of 0)
+
+# create workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation (the 10 models get trained and fitted)
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+
+# how do these models perform?
+cv$.metrics
+
+# overall:
+cv %>% 
+  collect_metrics()
+# => Linear model on just log of owned gets us to 0.265 (compared to 0.48)
+```
+
+
+
+#### 2. linear model
+```{r}
+# include avg_time (lin_spec stays the same)
+
+lin_rec <- recipe(geek_rating ~ owned + avg_time, data = train) %>% 
+  step_log(owned, avg_time, base = 2, offset = 1)
+
+# workflow
+cv <- lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+# ceck results
+cv$.metrics
+cv %>% 
+  collect_metrics()
+# 0.259
+```
+
+
+
+#### 3. linear model
+```{r}
+# include num_votes (lin_spec stays the same)
+
+lin_rec <- recipe(geek_rating ~ owned + avg_time + num_votes, data = train) %>% 
+  step_log(owned, avg_time, num_votes, base = 2, offset = 1)
+
+# workflow
+cv <- lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+# ceck results
+cv$.metrics
+cv %>% 
+  collect_metrics()
+# 0.238
+```
+
+
+
+#### 4. linear model
+```{r}
+# include min_players & max_players (lin_spec stays the same)
+
+lin_rec <- recipe(geek_rating ~ owned + avg_time + num_votes + 
+                    min_players + max_players, data = train) %>% 
+  step_log(owned, avg_time, num_votes, min_players, base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30))                              # mutate max_players within the recipe!
+
+# workflow
+cv <- lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+# ceck results
+cv$.metrics
+cv %>% 
+  collect_metrics()
+# 0.234
+```
+
+
+
+#### 5. linear model
+```{r}
+lin_rec <- recipe(geek_rating ~ owned + avg_time + num_votes + 
+                    min_players + max_players + 
+                    year, data = train) %>% 
+  step_log(owned, avg_time, num_votes, min_players, base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30))  %>% 
+  step_ns(year, deg_free = 3)
+
+# workflow
+cv <- lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+# ceck results
+cv$.metrics
+cv %>% 
+  collect_metrics()
+# 0.219
+```
+
+The same with tune()
+```{r}
+lin_rec <- recipe(geek_rating ~ owned + avg_time + num_votes + 
+                    min_players + max_players + 
+                    year, data = train) %>% 
+  step_log(owned, avg_time, num_votes, min_players, base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30))  %>% 
+  step_ns(year, deg_free = tune())
+
+# workflow
+cv <- lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# tune
+tuned <- lin_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(deg_free = 1:4),           # you can play with the range.... Note: not much gain after deg_free = 1:5
+            metrics = mset)
+
+# ceck results
+tuned %>% 
+  collect_metrics()
+# 4 different rmse for 4 different degrees of freedom!
+# 1: 0.234
+# 2: 0.238
+# 3: 0.219
+# 4: 0.216
+
+# visualise it!
+tuned %>% 
+  autoplot()
+```
+
+
+#### 6. linear model
+```{r}
+lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + 
+                    year + mechanic, data = train) %>% 
+  step_log(owned, num_votes, avg_time, min_players, 
+           base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30)) %>% 
+  step_ns(year, deg_free = 5) %>% 
+  step_tokenize(mechanic, token = "regex", options = list(pattern = ", ")) %>% # the whole mechanic instead of single words
+  step_tokenfilter(mechanic, max_tokens = 20) %>% 
+  step_tf(mechanic)                                 # creates something like a dummy variable 
+                                                    # (compare to tidyr::spread) for these 20 common mechanics
+
+# apply the cleaning methods on the data set
+# check if everything is as it should be...
+lin_rec %>% 
+  prep() %>% 
+  juice() %>% 
+  View()
+
+
+# workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# cross validation
+cv <- lin_wflow %>% 
+  fit_resamples(train_fold)
+
+# checking results
+cv %>% 
+  collect_metrics()
+# 0.210
+```
+
+The same with tune()
+```{r}
+lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + 
+                    year + mechanic, data = train) %>% 
+  step_log(owned, num_votes, avg_time, min_players, 
+           base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30)) %>% 
+  step_ns(year, deg_free = 5) %>% 
+  step_tokenize(mechanic, token = "regex", options = list(pattern = ", ")) %>% # the whole mechanic instead of single words
+  step_tokenfilter(mechanic, max_tokens = tune()) %>% 
+  step_tf(mechanic)                                 # creates something like a dummy variable 
+                                                    # (compare to tidyr::spread) for these 20 common mechanics
+
+# workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# tune
+tuned <- lin_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(max_tokens = c(3, 10, 30, 60, 100)),
+            metrics = mset)
+
+# checking results
+tuned %>% 
+  autoplot()
+
+
+tuned %>% 
+  autoplot() + 
+  scale_x_log10()
+
+# after max_tokens = 100, nothing changes  => because we just have 52 different mechanics
+train %>% 
+  separate_rows(mechanic, sep = ", ") %>% 
+  count(mechanic, sort = TRUE)
+```
+
+
+
+### glmnet (generalized linear model with lasso or elasticnet regularization)
+
+#### 1. glmnet
+```{r}
+# change engine
+lin_spec <- linear_reg(penalty = tune()) %>% 
+  set_engine("glmnet")
+
+# recipe
+lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + 
+                    year + mechanic, data = train) %>% 
+  step_log(owned, num_votes, avg_time, min_players, 
+           base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30)) %>% 
+  step_ns(year, deg_free = 5) %>% 
+  step_tokenize(mechanic, token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(mechanic, max_tokens = tune()) %>% 
+  step_tf(mechanic)                                
+
+# workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# tune
+tuned <- lin_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(max_tokens = c(3, 10, 30, 60),
+                            penalty = 10 ^ seq(-7, -1, 0.1)),      # penalty does not have an impact on running time!
+            metrics = mset)
+
+# checking results
+tuned %>% 
+  autoplot()
+
+tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+# 0.206
+```
+
+
+#### 2. glmnet
+
+```{r}
+# adding designer
+lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + 
+                    year + mechanic + designer, data = train) %>% 
+  step_log(owned, num_votes, avg_time, min_players, 
+           base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30)) %>% 
+  step_ns(year, deg_free = 5) %>% 
+  step_tokenize(mechanic, designer, token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(designer, max_tokens = tune()) %>% 
+  step_tf(mechanic, designer)                                
+
+# workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# tune
+tuned <- lin_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(max_tokens = c(3, 10, 30, 100, 200, 300),
+                            penalty = 10 ^ seq(-7, -2, 0.1)),      # penalty does not have an impact on running time!
+            metrics = mset)
+
+# checking results
+tuned %>% 
+  autoplot()
+
+tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+# 0.205
+```
+
+
+#### 3. glmnet
+```{r}
+# adding category (and age)
+train %>% 
+  separate_rows(category, sep = ", ") %>% 
+  count(category, sort = TRUE)
+# 84 categories
+
+lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + age +
+                    year + mechanic + designer +
+                    category, data = train) %>% 
+  step_log(owned, num_votes, avg_time, min_players, 
+           base = 2, offset = 1) %>% 
+  step_mutate(max_players = pmin(max_players, 30)) %>% 
+  step_ns(year, deg_free = 5) %>% 
+  step_tokenize(mechanic, designer, category,
+                token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(designer, max_tokens = 100) %>% 
+  step_tf(mechanic, designer, category) 
+
+# check
+lin_rec %>% 
+  prep() %>% 
+  juice()
+
+# workflow
+lin_wflow <- workflow() %>% 
+  add_recipe(lin_rec) %>% 
+  add_model(lin_spec)
+
+# tune
+tuned <- lin_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(penalty = 10 ^ seq(-7, -2, 0.1)),      # penalty does not have an impact on running time!
+            metrics = mset)
+
+# checking results
+tuned %>% 
+  autoplot()
+
+tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+# 0.201
+```
+
+
+
+
+
+
 
