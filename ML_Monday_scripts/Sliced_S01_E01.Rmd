@@ -173,7 +173,7 @@ lin_wflow <- workflow() %>%
   add_recipe(lin_rec) %>% 
   add_model(lin_spec)
 
-# cross validation (the 10 models get trained and fitted)
+# cross validation (the 10 models get trained and fitted => find out how good the model is, even though we do not know the true model)
 cv <- lin_wflow %>% 
   fit_resamples(train_fold)
 
@@ -184,7 +184,7 @@ cv$.metrics
 # overall:
 cv %>% 
   collect_metrics()
-# => Linear model on just log of owned gets us to 0.265 (compared to 0.48)
+# => Linear model on just log of owned gets us to 0.266 (compared to 0.48)
 ```
 
 
@@ -309,7 +309,7 @@ cv <- lin_wflow <- workflow() %>%
 tuned <- lin_wflow %>% 
   tune_grid(train_fold,
             grid = crossing(deg_free = 1:4),           # you can play with the range.... Note: not much gain after deg_free = 1:5
-            metrics = mset)
+            metrics = mset)                            # the higher the degrees of freedom, the more flexible is the model (it tunes the model)
 
 # ceck results
 tuned %>% 
@@ -344,9 +344,7 @@ lin_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
 # check if everything is as it should be...
 lin_rec %>% 
   prep() %>% 
-  juice() %>% 
-  View()
-
+  juice()
 
 # workflow
 lin_wflow <- workflow() %>% 
@@ -531,11 +529,209 @@ tuned %>%
   collect_metrics() %>% 
   arrange(mean)
 # 0.201
+
+# we use a lot of the data => change model to get better results!
 ```
 
 
 
+### Random forest
+```{r}
+rf_spec <- rand_forest("regression",
+            mtry = tune(),
+            trees = tune()) %>% 
+  set_engine("ranger") %>% 
+  set_args(importance = "impurity")         # which splits are the most valuable?
+
+# log is not needed in a random forest model
+# random models do not care if some values are very large
+# splines as well
+# => so we can leave these tidy-steps out
+# note: do not overload the model at the beginning
+rf_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + age +
+                    year + mechanic + designer +
+                    category, data = train) %>% 
+  step_tokenize(mechanic, designer, category,
+                token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(mechanic, designer, category, max_tokens = 10) %>% 
+  step_tf(mechanic, designer, category)
+
+# check
+rf_rec %>% 
+  prep() %>% 
+  juice()
+
+# workflow
+rf_wflow <- workflow() %>% 
+  add_recipe(rf_rec) %>% 
+  add_model(rf_spec)
+
+# tune
+rf_tuned <- rf_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(trees = c(30, 100),
+                            mtry = 2:5),
+            metrics = mset)
 
 
+autoplot(rf_tuned) # trees do not make that much of difference, mtrys do!
+```
+
+
+```{r}
+# tune 2.0
+# create extra fold (it takes a lot of computational power)
+set.seed(2021)
+train_fold5 <- train %>% 
+  vfold_cv(5)
+
+
+rf_tuned <- rf_wflow %>% 
+  tune_grid(train_fold5,
+            grid = crossing(trees = c(200, 300, 400),       # play around with the specs to get good results
+                            mtry = c(10, 15, 20, 25, 30)),  # compare plots to find the best model settings
+            metrics = mset)
+
+
+autoplot(rf_tuned)
+# trees = 200
+# mtry = 20
+
+
+rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+# ~0.176
+```
+
+
+```{r}
+# tune 3.0 => max_tokens
+
+rf_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + age +
+                    year + mechanic + designer +
+                    category, data = train) %>% 
+  step_tokenize(mechanic, designer, category,
+                token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(mechanic, designer, category, max_tokens = tune()) %>% 
+  step_tf(mechanic, designer, category)
+
+# workflow
+rf_wflow <- workflow() %>% 
+  add_recipe(rf_rec) %>% 
+  add_model(rf_spec)
+
+
+rf_tuned <- rf_wflow %>% 
+  tune_grid(train_fold5,
+            grid = crossing(trees = 200,      
+                            mtry = 20,
+                            max_tokens = c(3, 10, 30)), 
+            metrics = mset)
+
+
+autoplot(rf_tuned)
+# the more tokens the worse... => tokens are not adding anything to random forest
+# => trees are better at handling one categorical variable instead of many dummy-variables
+
+
+rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+```
+
+Load data again to make sure, we are on the same page...
+```{r}
+full_data <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Sliced S01E01/train.csv") %>% 
+  unite(category, starts_with("category"),
+        sep = ", ", na.rm = TRUE, remove = FALSE)
+
+holdout <- read_csv("C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Sliced S01E01/test.csv") %>% 
+  unite(category, starts_with("category"),
+        sep = ", ", na.rm = TRUE, remove = FALSE)
+
+set.seed(2021)
+
+spl <- initial_split(full_data, prop = 0.8)
+train <- training(spl)
+test <- testing(spl)
+train_fold <- train %>% 
+  vfold_cv(10)
+train_fold5 <- train %>% 
+  vfold_cv(5)
+```
+
+```{r}
+rf_spec <- rand_forest("regression",
+            mtry = tune(),
+            trees = tune()) %>% 
+  set_engine("ranger") %>% 
+  set_args(importance = "impurity") 
+
+rf_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + age +
+                    year + mechanic + designer +
+                    category, data = train) %>% 
+  step_tokenize(mechanic, designer, category,
+                token = "regex", options = list(pattern = ", ")) %>% 
+  step_tokenfilter(mechanic, designer, category, max_tokens = tune()) %>% 
+  step_tf(mechanic, designer, category)
+
+rf_wflow <- workflow() %>% 
+  add_recipe(rf_rec) %>% 
+  add_model(rf_spec)
+
+rf_tuned <- rf_wflow %>% 
+  tune_grid(train_fold5,
+            grid = crossing(trees = 200, 
+                            max_tokens = c(1, 3, 10),
+                            mtry = c(1, 10, 15)), 
+            metrics = mset)
+
+autoplot(rf_tuned)
+
+rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+# 0.177
+```
+
+without tokens
+```{r}
+rf_rec <- recipe(geek_rating ~ owned + num_votes + avg_time +
+                    min_players + max_players + age +
+                    year, data = train)
+
+rf_wflow <- workflow() %>% 
+  add_recipe(rf_rec) %>% 
+  add_model(rf_spec)
+
+rf_tuned <- rf_wflow %>% 
+  tune_grid(train_fold5,
+            grid = crossing(trees = c(200, 300),  
+                            mtry = 2:6), 
+            metrics = mset)
+
+autoplot(rf_tuned)
+
+rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean)
+```
+
+finalize
+```{r}
+rf_wflow %>% 
+  finalize_workflow(list(trees = 200, mtry = 5)) %>% 
+  last_fit(spl) %>% 
+  collect_metrics()
+# 0.183 => maybe over fitting the parameters
+```
+
+
+
+### XGBoost
 
 
