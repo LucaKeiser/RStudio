@@ -538,7 +538,7 @@ tuned %>%
 ### Random forest
 ```{r}
 rf_spec <- rand_forest("regression",
-            mtry = tune(),
+            mtry = tune(),                  # number of variables randomly sampled as candidates at each split
             trees = tune()) %>% 
   set_engine("ranger") %>% 
   set_args(importance = "impurity")         # which splits are the most valuable?
@@ -730,8 +730,70 @@ rf_wflow %>%
 # 0.183 => maybe over fitting the parameters
 ```
 
+What were most important variables?
+```{r}
+rf_fit <- rf_wflow %>% 
+  finalize_workflow(list(trees = 200, mtry = 5)) %>% 
+  fit(train)
+
+ranger::importance(rf_fit$fit$fit$fit) %>% 
+  sort()
+# num_votes => most important
+# min_players => least important
+# dropping out unimportant ones can improve the random forest
+```
 
 
-### XGBoost
+### XGBoost (almost like random forest)
+```{r}
+xg_spec <- boost_tree("regression",
+                      mtry = 4,
+                      trees = tune(),
+                      learn_rate = tune()) %>% 
+  set_engine("xgboost")
+
+xg_rec <- recipe(geek_rating ~ owned + num_votes, avg_time + 
+                   max_players + year + age,
+                 data = train)
+
+xg_wflow <- workflow() %>% 
+  add_recipe(xg_rec) %>% 
+  add_model(xg_spec)
+
+xg_tune <- xg_wflow %>% 
+  tune_grid(train_fold,
+            grid = crossing(trees = c(3000, 5000),
+                            learn_rate = c(0.003, 0.01)),
+            metrics = mset,
+            control = control_stack_grid())
+
+autoplot(xg_tune)
+# => play the tune()! => is there a trend visible?
+# if the curve goes up => sign for over fitting!
+```
+
+finalize
+```{r}
+xg_test <- xg_wflow %>% 
+  finalize_workflow(list(trees = 3000,
+                         learn_rate = 0.01)) %>% 
+  last_fit(spl)
+
+collect_metrics(xg_test)
+# 0.271 => something went wrong... 
+
+xg_fit <- xg_wflow %>% 
+  finalize_workflow(list(trees = 3000,
+                         learn_rate = 0.01)) %>% 
+  fit(full_data)
+
+attempt1 <- xg_fit %>% 
+  predict(holdout) %>% 
+  bind_cols(holdout %>% select(game_id)) %>% 
+  select(game_id, geek_rating = .pred)
+
+write_csv(attempt1, "C:/Users/LucaK/Desktop/GitHub/RStudio/Datasets/Sliced S01E01/attempt1.csv")
+# now you would have to upload this .csv-file to kaggle...
+```
 
 
