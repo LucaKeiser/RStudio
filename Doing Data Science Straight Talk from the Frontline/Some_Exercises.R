@@ -1,8 +1,6 @@
 # Cathy O'Neil and Rachel Schutt (2013): Doing Data Science: Straight Talk from the Frontline
 
-# page 70f.
-
-
+### Page 70f. ---------------------------------------------------------------
 # set seed
 set.seed(02102021)
 
@@ -33,7 +31,6 @@ df <- tibble(
 )
 
 
-
 # Exercise 1 --------------------------------------------------------------
 
 model1 <- summary(lm(y ~ x_1, data = df))
@@ -42,8 +39,6 @@ model1
 # plot
 plot(df$x_1, df$y, pch = 20, col = "red")
 abline(model1$coefficients[1], model1$coefficients[2])
-
-
 
 
 # Exercise 2 --------------------------------------------------------------
@@ -78,4 +73,62 @@ model6 <- summary(lm(y ~ x_1 + x_2, data = test))
 mean(model6$residuals^2)
 
 
+
+### Page 77ff. ---------------------------------------------------------------
+
+# k-Nearest Neighbors (k-NN)
+library(tidyverse)
+
+# set seed
+set.seed(1234)
+
+# create fake data set
+df <- tibble(
+  age = runif(n = 1000, min = 18, max = 95),
+  income = runif(n = 1000, min = 15, max = 250)
+  
+)
+
+# create credit variable (not very sophisticated...)
+df <- df %>% 
+  mutate(credit = case_when(
+    income >= 15 & income < 50 ~ "low",
+    income >= 50 & income <= 250 ~ "high"))
+
+
+# create training and testing set
+library(tidymodels)
+
+spl <- initial_split(df, prop = 0.8)
+
+training <- training(spl)
+testing <- testing(spl)
+
+# pretend you do not know the labels
+train <- training %>% 
+  select(c(age, income))
+test <- testing %>% 
+  select(c(age, income))
+
+# how many labels are in the test set?
+num.test.set.labels <- 800
+
+# true labels
+# training
+cl <- training$credit
+# testing
+true.labels <- testing$credit
+
+# predict labels with k = 3 (guess)
+library(class)
+knn(train, test, cl, k = 3)
+
+
+# what is a good choice for k?
+for (k in 1:20) {
+  predicted.labels <- knn(train, test, cl, k)
+  num.incorrect.labels <- sum(predicted.labels != true.labels)
+  missclassification.rate <- num.incorrect.labels / num.test.set.labels
+  print(c(k, missclassification.rate))
+}
 
