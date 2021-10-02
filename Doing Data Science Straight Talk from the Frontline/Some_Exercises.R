@@ -1,6 +1,10 @@
 # Cathy O'Neil and Rachel Schutt (2013): Doing Data Science: Straight Talk from the Frontline
 
-### Page 70f. ---------------------------------------------------------------
+
+# Linear Regrassion -------------------------------------------------------
+
+# page 70f.
+
 # set seed
 set.seed(02102021)
 
@@ -31,7 +35,7 @@ df <- tibble(
 )
 
 
-# Exercise 1 --------------------------------------------------------------
+### exercise 1
 
 model1 <- summary(lm(y ~ x_1, data = df))
 model1
@@ -41,7 +45,7 @@ plot(df$x_1, df$y, pch = 20, col = "red")
 abline(model1$coefficients[1], model1$coefficients[2])
 
 
-# Exercise 2 --------------------------------------------------------------
+#### exercise 2
 
 model2 <- summary(lm(y ~ x_1, data = df))
 model2
@@ -74,9 +78,10 @@ mean(model6$residuals^2)
 
 
 
-### Page 77ff. ---------------------------------------------------------------
 
-# k-Nearest Neighbors (k-NN)
+# k-Nearest Neighbors (k-NN) ----------------------------------------------
+
+# page 77ff.
 library(tidyverse)
 
 # set seed
@@ -135,4 +140,108 @@ for (k in 1:20) {
   missclassification.rate <- num.incorrect.labels / num.test.set.labels
   print(c(k, missclassification.rate))
 }
+
+
+
+
+# K-Means -----------------------------------------------------------------
+
+# https://www.statology.org/k-means-clustering-in-r/
+
+# load packages
+library(factoextra)
+library(cluster)
+library(tidyverse)
+
+
+# prepare data 
+
+# use the USArrest data set
+df <- USArrests
+
+# remove rows with missing values
+df <- na.omit(df)
+
+# scale each variable to have a mean of 0 and sd of 1
+# sclae() creates a matrix => is necessary!
+# => Scaling and Centering of Matrix-like Objects
+df <- scale(df)
+
+# take a look
+head(df)
+
+
+
+### start with K-Means
+
+# note:
+# centers = numer of clusters (k)
+# nstart = number of initial configurations. It is possible that different 
+# inital starting clusters lead to different results... 
+# it is recommended to use several different inital configurations
+# K-Means will find the inital configuration wirh the smallest within-cluser variation
+
+### how many clusters?
+fviz_nbclust(df, kmeans, method = "wss")
+
+# Typically when we create this type of plot we look for an “elbow” where 
+# the sum of squares begins to “bend” or level off. This is typically the 
+# optimal number of clusters. Here; 4 clusters
+
+
+# OR
+
+gap_stat <- clusGap(df,
+                    FUN = kmeans,
+                    nstart = 25,
+                    K.max = 10,
+                    B = 50)
+fviz_gap_stat(gap_stat)
+
+# again it seems to be 4 (gap statistic is highest...)
+
+
+### cluster!
+
+set.seed(1234)
+
+# perform k-means clustering with k = 4
+km <- kmeans(df, centers = 4, nstart = 25)
+km
+
+# K-means clustering with 4 clusters of sizes 8, 13, 16, 13
+# numer below the sates = numer of the cluster
+
+# visualize the output
+fviz_cluster(km, data = df)
+
+# aggregate the means for each cluster with aggregate()
+# per 100'000 citizens | UrbanPop in %!
+aggregate(USArrests, by = list(cluster = km$cluster) , FUN = mean)
+
+
+# create final data set
+final_df <- cbind(USArrests, cluster = km$cluster)
+
+# aggregate again
+mean(final_df$Murder[final_df$cluster == 1])
+mean(final_df$Murder[final_df$cluster == 2])
+# etc.
+
+# or
+
+for (i in 1:4) {
+  
+ x <- final_df %>% 
+      filter(cluster == i) %>% 
+      summarise(Murder = mean(Murder),
+                Assault = mean(Assault),
+                UrbanPop = mean(UrbanPop),
+                Rape = mean(Rape))
+ 
+  print(as_tibble(x))
+
+  }
+
+
 
