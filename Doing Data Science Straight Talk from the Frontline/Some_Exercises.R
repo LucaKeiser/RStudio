@@ -114,13 +114,17 @@ test <- testing %>%
 num.test.set.labels <- 800
 
 # true labels
-# training
+# subset of labels for the training set
 cl <- training$credit
-# testing
+# subset of labels for the test set, we're withholding these
 true.labels <- testing$credit
 
 # predict labels with k = 3 (guess)
 library(class)
+
+# note: cl are the true labels of the training set (n = 800) 
+# with these values we want to predict the labels for the testing set!
+# so the output is 200 guessed labels!
 knn(train, test, cl, k = 3)
 
 
