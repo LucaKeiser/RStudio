@@ -11,14 +11,14 @@ library(tidyverse)
 # readr -------------------------------------------------------------------
 
 ## read_csv ----------------------------------------------------------------
-df <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv")
+df_kinos <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv")
 
 # use spec()!
-df %>% 
+df_kinos %>% 
   spec()
 
 # read in again
-df <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv",
+df_kinos <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv",
                col_types = cols(
                  X_LV95 = col_double(),
                  Y_LV95 = col_double(),
@@ -33,7 +33,7 @@ df <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv",
                )
 
 # check
-df
+df_kinos
 
 
 
@@ -322,7 +322,169 @@ intersect(iris, iris)
 
 
 
+# stringr -----------------------------------------------------------------
+
+
+## str_trim and str_squish -------------------------------------------------
+df_kinos %>% 
+  mutate(adresse = str_squish(adresse))
+
+
+# example
+# str_trim removes spaces at the beginning/end
+"   aksdjf     asö   ldefj   aklsdjfjk  " %>% 
+  str_trim()
+
+# str_squish also removes repeated spaces within a word
+"   aksdjf     asö   ldefj   aklsdjfjk  " %>% 
+  str_squish()
 
 
 
 
+## str_to_... --------------------------------------------------------------
+# df is already str_to_title
+df_kinos %>% 
+  mutate(kinonamen = str_to_lower(kinonamen))
+
+df_kinos %>% 
+  mutate(kinonamen_alt = str_to_upper(kinonamen_alt))
+
+
+
+# na_if (dplyr) ------------------------------------------------------------
+# convert spaces into NAs
+df_kinos %>% 
+  mutate(adresse = na_if(x = adresse,
+                         y = " "))
+
+# example
+"   " %>% 
+  str_squish() %>% 
+  na_if("")
+
+
+
+## str_detect --------------------------------------------------------------
+
+df_kinos %>% 
+  filter(str_detect(adresse, "Albis"))
+
+# compare to filter alone
+df_kinos %>% 
+  filter(adresse == "Albis")
+
+df_kinos %>% 
+  filter(adresse %in% c("Albisriederplatz", "Albisstrasse 44"))
+
+
+
+# forcats -----------------------------------------------------------------
+
+# read in new data
+df_fight_data <- read_csv("https://raw.githubusercontent.com/andrew-couch/Tidy-Tuesday/master/Season%202/Data/fight_data.csv")
+
+df_fight_data %>% 
+  spec()
+
+# bit of cleaning
+df_fight_clean <- df_fight_data %>% 
+  select(weight_class, kd, strike_landed, sig_strike_landed, td_landed) %>% 
+  separate(col = weight_class, 
+          into = c("gender", "weightclass"),
+          sep = "_")
+         
+# graph
+df_fight_clean %>% 
+  group_by(gender, weightclass) %>% 
+  summarise(median_strike_landed = median(strike_landed, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  ggplot(aes(x = weightclass, y = median_strike_landed, fill = gender)) +
+  geom_col() + 
+  coord_flip()
+
+# clean data a bit more
+df_fight_clean <- df_fight_clean %>% 
+  group_by(gender, weightclass) %>% 
+  summarise(median_strike_landed = median(strike_landed, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  filter(!str_detect(string = weightclass,
+                     pattern = "Catch")) %>% 
+  mutate(median_strike_landed = if_else(condition = gender == "Men",
+                                        true = median_strike_landed,
+                                        false = -median_strike_landed))
+
+df_fight_clean %>%
+  ggplot(aes(x = weightclass, y = median_strike_landed, fill = gender)) +
+  geom_col() + 
+  coord_flip()
+    
+    
+
+## fct_reorder -------------------------------------------------------------
+df_fight_clean %>% 
+  mutate(weightclass = fct_reorder(weightclass, median_strike_landed,
+                                   .desc = FALSE,
+                                   .fun = median)) %>% 
+  ggplot(aes(x = weightclass, y = median_strike_landed, fill = gender)) +
+  geom_col() + 
+  coord_flip()
+
+# define
+df_fight_clean <- df_fight_clean %>% 
+  mutate(weightclass_order = case_when(
+    weightclass == "Strawweight" ~ 1,
+    weightclass == "Flyweight" ~ 2,
+    weightclass == "Bantamweight" ~ 3,
+    weightclass == "Featherweight" ~ 4,
+    weightclass == "Lightweight" ~ 5,
+    weightclass == "Welterweight" ~ 6,
+    weightclass == "Middleweight" ~ 7,
+    TRUE ~ 8
+  ))
+
+# check
+df_fight_clean %>% 
+  count(weightclass, weightclass_order) %>% 
+  arrange(weightclass_order)
+
+df_fight_clean %>% 
+  mutate(weightclass = fct_reorder(weightclass, weightclass_order,
+                                   .desc = TRUE)) %>% 
+  ggplot(aes(x = weightclass, y = median_strike_landed, fill = gender)) +
+  geom_col() + 
+  coord_flip()
+  
+
+
+## fct_lump ----------------------------------------------------------------
+# take a look
+df_fight_data %>% 
+  count(method, sort = TRUE)
+
+# change
+df_fight_data %>% 
+  mutate(method = fct_lump(method, n = 4)) %>% 
+  count(method, sort = TRUE)
+
+df_fight_data %>% 
+  mutate(method = fct_lump_lowfreq(method)) %>% 
+  count(method, sort = TRUE)
+
+# plot
+df_fight_data %>% 
+  mutate(method = fct_lump_min(method, min = 161)) %>% 
+  count(method, sort = TRUE) %>%
+  ggplot(aes(x = method, y = n)) +
+  geom_col()
+
+# change position of "other" => nice!
+df_fight_data %>% 
+  mutate(method = fct_lump_min(method, min = 161),
+         method = fct_relevel(method, "Other", "Decision")) %>% 
+  count(method, sort = TRUE) %>% 
+  ggplot(aes(x = method, y = n)) + 
+  geom_col()
+
+
+    
