@@ -1,8 +1,5 @@
 # Intro - Tidyverse
 # A brief overview
-
-
-
 # package
 library(tidyverse)
 
@@ -487,4 +484,200 @@ df_fight_data %>%
   geom_col()
 
 
-    
+
+# ggplot2 -----------------------------------------------------------------
+iris <- as_tibble(iris)
+names(iris)
+
+ggplot(data = iris,
+       mapping = aes(x = Sepal.Length, y = Sepal.Width)) +
+  geom_point()
+
+
+# short (globally)
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point()
+
+# or (locally)
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width)) + 
+  geom_point(aes(color = Species))
+
+# whats the difference?
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() + 
+  geom_smooth(method = "glm")
+
+### VS.
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width)) + 
+  geom_point(aes(color = Species)) + 
+  geom_smooth(method = "glm")
+
+### VS. (group-argument!)
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, group = Species)) + 
+  geom_point(aes(color = Species)) + 
+  geom_smooth(method = "glm")
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, group = Species)) + 
+  geom_point() + 
+  geom_smooth(aes(color = Species), method = "glm")
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, group = Species)) + 
+  geom_point(aes(color = Species)) + 
+  geom_smooth(aes(color = Species), method = "glm")
+
+
+
+## geom_bar vs. geom_col ---------------------------------------------------
+diamonds %>% 
+  ggplot(aes(x = color)) +
+  geom_bar()
+
+
+diamonds %>% 
+  count(color) %>% 
+  mutate(color = fct_reorder(color, n)) %>% 
+  ggplot(aes(color, n)) +
+  geom_col()
+
+
+diamonds %>% 
+  count(cut, color) %>% 
+  ggplot(aes(x = color, y = n, fill = cut)) +
+  geom_col(position = "dodge")
+
+
+
+## multiple charts ---------------------------------------------------------
+
+### facet_wrap
+
+# same scale
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + 
+  facet_wrap(~ Species, "fixed")
+
+# diffrent scales
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + 
+  facet_wrap(~ Species, scales = "free_y")
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + 
+  facet_wrap(~ Species, scales = "free_x")
+
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + 
+  facet_wrap(~ Species, scales = "free")
+
+
+### facet_grid => vars() is necessary!
+iris %>% 
+  ggplot(aes(Sepal.Length, Sepal.Width, color = Species)) + 
+  geom_point() +
+  geom_smooth(method = "glm") + 
+  facet_grid(rows = vars(Species))
+
+
+diamonds %>% 
+  ggplot(aes(carat, price)) +
+  geom_point() + 
+  facet_grid(rows = vars(cut), cols = vars(color),
+             scales = "free")
+
+# compare to facet_wrap => not that clean...
+diamonds %>% 
+  ggplot(aes(carat, price)) +
+  geom_point() + 
+  facet_wrap(~ cut + color, scales = "free")
+
+
+
+## Formatting plots --------------------------------------------------------
+# for more details: http://www.sthda.com/english/wiki/ggplot2-essentials
+# for more exampoles: https://exts.ggplot2.tidyverse.org/gallery/
+
+# color
+diamonds %>% 
+  ggplot(aes(carat, price, color = price)) +
+  geom_point() +
+  scale_color_fermenter()
+
+diamonds %>% 
+  ggplot(aes(carat, price, color = price)) +
+  geom_point() +
+  scale_color_viridis_c()
+
+diamonds %>% 
+  ggplot(aes(carat, price, color = price)) +
+  geom_point() +
+  scale_color_viridis_b()
+
+# fill
+diamonds %>% 
+  count(cut, color) %>% 
+  mutate(color = fct_reorder(color, n,
+                             .fun = mean)) %>% 
+  ggplot(aes(color, n, fill = cut)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_discrete()
+
+
+# labs
+plot_1 <- diamonds %>% 
+  ggplot(aes(carat, price, color = price)) +
+  geom_point() +
+  scale_color_viridis_c() +
+  labs(title = "Title XY",
+       subtitle = "Subtitle XY",
+       x = "Carat",
+       y = "Price",
+       color = "Dollars")
+
+plot_1
+
+# scales => has a lot in it!
+library(scales)
+
+plot_1 +
+  scale_y_continuous(labels = dollar_format())
+
+
+diamonds %>% 
+  count(cut, color) %>% 
+  group_by(cut) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  ungroup() %>% 
+  ggplot(aes(cut, prop, fill = color)) +
+  geom_col() +
+  scale_y_continuous(labels = percent_format())
+
+
+
+## Themes ------------------------------------------------------------------
+iris %>% 
+  ggplot(aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
+  geom_point() +
+  theme(legend.position = "top")
+
+
+# NOTE: you can create ggplot-objects and save them with ggsave!
+
+
