@@ -1,22 +1,50 @@
+# Intro - Tidyverse
+# A brief overview
+
+
+
+# package
 library(tidyverse)
 
 
 
-# Readr -------------------------------------------------------------------
+# readr -------------------------------------------------------------------
 
+## read_csv ----------------------------------------------------------------
+df <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv")
 
+# use spec()!
+df %>% 
+  spec()
+
+# read in again
+df <- read_csv("Tidyverse_Intro/Data/kinostandorte_1907-2018.csv",
+               col_types = cols(
+                 X_LV95 = col_double(),
+                 Y_LV95 = col_double(),
+                 Adresse = col_character(),
+                 Kinonamen_history = col_character(),
+                 Kinonamen = col_character(),
+                 VonISO = col_date(format = ""),
+                 BisISO = col_date(format = "")
+                 ),
+               col_names = c("x", "y", "adresse", "kinonamen_alt", "kinonamen", "von", "bis"),
+               skip = 1 # need to skip one row, in order to get rid of the header....
+               )
+
+# check
+df
 
 
 
 # tidyr -------------------------------------------------------------------
 
-# pivot_longer
+## pivot_longer ------------------------------------------------------------
 billboard %>% 
   pivot_longer(cols = wk1:wk76, 
                names_to = "week", 
                values_to = "rank")
 
-# convert it back again with pivot_wider
 billboard %>% 
   pivot_longer(cols = wk1:wk76, 
                names_to = "week", 
@@ -44,17 +72,16 @@ billboard %>%
   pivot_wider(names_from = artist, values_from = n, values_fill = 0)
 
 
-# separete rows
+
+## separete_rows -----------------------------------------------------------
 billboard %>% 
   separate_rows(artist, sep = ", ")
 
 
 
-
-
 # dplyr -------------------------------------------------------------------
 
-# mutate
+## mutate -----------------------------------------------------------------
 iris %>% 
   as_tibble() %>% 
   mutate(sqrt_sepal = sqrt(Sepal.Length),
@@ -63,7 +90,9 @@ iris %>%
                                    false = "Not greater than five"))
 
 
-# count
+
+
+## count ------------------------------------------------------------------
 iris %>% 
   count(Sepal.Length, sort = TRUE)
 
@@ -71,7 +100,7 @@ iris %>%
   add_count(Sepal.Length)
 
 
-# combine
+## combine -----------------------------------------------------------------
 iris %>% 
   as_tibble() %>% 
   mutate(sqrt_sepal = sqrt(Sepal.Length),
@@ -96,7 +125,9 @@ iris %>%
 
 
 
-# filter
+
+
+## filter ------------------------------------------------------------------
 iris %>% 
   filter(Species == "setosa")
 
@@ -127,7 +158,7 @@ iris %>%
   filter(dense_rank(desc(Sepal.Length)) < 5)
 
 
-# select
+## select ------------------------------------------------------------------
 iris %>% 
   select(Petal.Length)
 
@@ -139,7 +170,7 @@ iris %>%
 
 
 
-# group_by (data for each group)
+## group_by ----------------------------------------------------------------
 iris %>% 
   group_by(Species) %>% 
   summarise(avg_sepal_length = mean(Sepal.Length))
@@ -165,7 +196,8 @@ iris %>%
 
 
 
-# case_when
+
+## case_when ---------------------------------------------------------------
 iris %>% 
   mutate(test = case_when(
     Sepal.Length > 5 & Sepal.Width > 3 ~ "Large",
@@ -184,7 +216,8 @@ iris %>%
          )
 
 
-# window-functions
+
+## window-functions --------------------------------------------------------
 economics %>% 
   select(date, unemploy) %>% 
   mutate(prev_unemploy = lag(unemploy, 
@@ -204,7 +237,8 @@ economics %>%
 
 
 
-# ranking
+
+## ranking -----------------------------------------------------------------
 iris %>% 
   as_tibble() %>% 
   arrange(desc(Sepal.Length)) %>% 
@@ -225,7 +259,8 @@ iris %>%
   View()
 
 
-# slice
+
+## slice -------------------------------------------------------------------
 iris %>% 
   slice(1:6)
 
@@ -241,7 +276,8 @@ iris %>%
 
 
 
-# joining/merging
+
+## joining/merging ---------------------------------------------------------
 band_members
 band_instruments2
 
@@ -270,8 +306,6 @@ df %>%
 df_2 %>% 
   anti_join(df %>% 
               filter(z < 5), by = "x")
-
-
 
 
 # setdiff => remove duplicates
