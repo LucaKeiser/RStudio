@@ -180,7 +180,7 @@ coef(sim1_mod)
 
 
 
-## Exercises --------------------------------------------------------------
+### Exercises -------------------------------------------------------------
 
 # 1)
 # One downside of the linear model is that it is **sensitive** to 
@@ -353,7 +353,7 @@ ggplot(sim1, aes(x = x, y = resid)) +
 
 
 
-## Exercises  -------------------------------------------------------------
+### Exercises  ------------------------------------------------------------
 
 # Instead of using lm() to fit a straight line, you can use loess() to fit 
 # a smooth curve. Repeat the process of model fitting, grid generation, 
@@ -408,7 +408,7 @@ ggplot(data = sim1) +
 
 
 
-# Categorical variables ---------------------------------------------------
+## Categorical variables --------------------------------------------------
 
 
 # Generating a function from a formula is straight forward when the predictor is 
@@ -475,7 +475,8 @@ mod2
 # etc.!
 
 
-# Interactions (continuous and categorical) -------------------------------
+
+## Interactions (continuous and categorical) ------------------------------
 
 data(sim3)
 
@@ -508,3 +509,199 @@ grid <- sim3 %>%
 View(grid)
 
 
+# visualise the results for both models
+ggplot(data = sim3, aes(x = x1, y = y, color = x2)) +
+  geom_point() +
+  geom_line(data = grid, aes(x = x1, y = pred, color = x2)) +
+  facet_wrap(~model) +
+  labs(title = "Model Comparison (continuous and categorical)",
+       subtitle = "mod1 = no interactions | mod2 = interactions")
+
+# Note that the model that uses + (no interaction) has the same slope for each 
+# line, but different intercepts. The model that uses * (interaction) has a 
+# different slope AND intercept for each line.
+
+
+# which model perfoms better?
+# take a look at the residuals!
+
+sim3 <- sim3 %>% 
+  gather_residuals(mod1, mod2)
+
+View(sim3)
+
+sim3 %>% 
+  ggplot(aes(x = x1, y = resid, color = x2)) +
+  geom_point() + 
+  # facet grid (model AND x2)
+  facet_grid(~ model ~ x2)
+
+# mod1: patterns are clearly visible (!)
+# => mod1 has missed these patterns!
+
+# mod2: no patterns visible
+# => mod2 has captured these patterns! 
+
+
+
+## Interactions (two continuous) ------------------------------------------
+
+data (sim4)
+
+mod1 <- lm(y ~ x1 + x2, data = sim4)
+mod2 <- lm(y ~ x1 * x2, data = sim4)
+# y ~ x1 * x2 is translated to y = a_0 + a_1 * x1 + a_2 * x2 + a_12 * x1 * x2
+
+grid <- sim4 %>% 
+  data_grid(
+    # not every single value of x is needed here...
+    # take a look at the seq_range()-function!
+    # => pretty = TRUE, trim, expand...
+    x1 = seq_range(x1, 5),
+    x2 = seq_range(x2, 5)
+  ) %>% 
+  gather_predictions(mod1, mod2)
+
+
+grid
+
+
+# visualise model (first as a 3d surface from the top)
+
+ggplot(data = grid, aes(x = x1, y = x2, fill = pred)) +
+  geom_tile() + 
+  facet_wrap(~ model) +
+  scale_fill_viridis_b() +
+  labs(title = "Model Comparison (continuous and continuous)",
+       subtitle = "mod1 = no interactions | mod2 = interactions")
+
+# the models do not look that different...
+
+
+
+# visualise model (multiple slices from either side)
+
+p1 <- ggplot(data = grid, aes(x = x1, y = pred, color = x2, group = x2)) + 
+  geom_line() + 
+  facet_wrap(~ model) +
+  labs(title = "Model Comparison (continuous and continuous)",
+       subtitle = "mod1 = no interactions | mod2 = interactions")
+
+
+p2 <- ggplot(data = grid, aes(x = x2, y = pred, color = x1, group = x1)) +
+  geom_line() + 
+  facet_wrap(~ model) +
+  labs(title = "Model Comparison (continuous and continuous)",
+       subtitle = "mod1 = no interactions | mod2 = interactions")
+
+
+library(patchwork)
+p1 + p2
+
+# An interaction says that there’s not a fixed offset: 
+# => you need to consider both (!) values of x1 and x2 simultaneously in order to predict y.
+# Interaction: x1 and x2 are connected (if you change one of them, you change the other as well)
+# => different slopes AND intercepts!
+
+
+# You can see that even with just two continuous variables, coming up with good visualisations 
+# are hard. But that’s reasonable: you shouldn’t expect it will be easy to understand how 
+# three or more variables simultaneously interact!
+
+
+
+
+## Transformations --------------------------------------------------------
+
+# Transformations are useful because you can use them to approximate non-linear 
+# functions. If you’ve taken a calculus class, you may have heard of Taylor’s 
+# theorem which says you can approximate any smooth function with an infinite 
+# sum of polynomials. That means you can use a polynomial function to get 
+# arbitrarily close to a smooth function by fitting an equation like 
+# y = a_1 + a_2 * x + a_3 * x^2 + a_4 * x ^ 3. 
+# Typing that sequence by hand is tedious, so R provides a helper function: poly():
+
+# NOTE: you can always take a look, what R is doing in the "backgroud"
+
+df <- tribble(
+  ~y, ~x,
+  1,  1,
+  2,  2, 
+  3,  3
+)
+
+model_matrix(df, y ~ poly(x, 2))
+
+# Outside the range of the data, polynomials rapidy shoot off to + or - inf
+# => be careful with poly()
+
+# better use spline()!
+
+library(splines)
+
+model_matrix(df, y ~ ns(x, 2))
+
+
+# What does it look like when we try to approximate a non-linear (!) model?
+
+# generate the data first!
+sim5 <- tibble(
+  x = seq(0, 3.5 * pi, length = 50),
+  
+  # rnorm adds some random noise to the data
+  y = 4 * sin(x) + rnorm(n = length(x))
+)
+
+
+sim5_NoNoise <- tibble(
+  x = seq(0, 3.5 * pi, length = 50),
+  y = 4 * sin(x)
+  )
+
+
+
+# create models (5 each) & grids
+mod1 <- lm(y ~ ns(x, 1), data = sim5)
+mod2 <- lm(y ~ ns(x, 2), data = sim5)
+mod3 <- lm(y ~ ns(x, 3), data = sim5)
+mod4 <- lm(y ~ ns(x, 4), data = sim5)
+mod5 <- lm(y ~ ns(x, 5), data = sim5)
+
+mod1_NoNoise <- lm(y ~ ns(x, 1), data = sim5_NoNoise)
+mod2_NoNoise <- lm(y ~ ns(x, 2), data = sim5_NoNoise)
+mod3_NoNoise <- lm(y ~ ns(x, 3), data = sim5_NoNoise)
+mod4_NoNoise <- lm(y ~ ns(x, 4), data = sim5_NoNoise)
+mod5_NoNoise <- lm(y ~ ns(x, 5), data = sim5_NoNoise)
+
+# grids
+grid <- sim5 %>% 
+  data_grid(x = seq_range(x, n = 50, expand = 0.1)) %>% 
+  gather_predictions(mod1, mod2, mod3, mod4, mod5)
+
+
+grid_NoNoise <- sim5_NoNoise %>% 
+  data_grid(x = seq_range(x, n = 50, expand = 0.1)) %>% 
+  gather_predictions(mod1_NoNoise, mod2_NoNoise, mod3_NoNoise, mod4_NoNoise, mod5_NoNoise)
+
+
+
+# plot
+ggplot(data = sim5, aes(x = x, y = y)) +
+  geom_point() +
+  geom_line(data = grid, aes(x = x, y = pred), color = "red") + 
+  facet_wrap(~ model)
+
+
+ggplot(data = sim5_NoNoise, aes(x = x, y = y)) + 
+  geom_point() + 
+  geom_line(data = grid_NoNoise, aes(x = x, y = pred), color = "red") +
+  facet_wrap(~ model)
+
+
+# Note the difference between the two data sets!
+
+# Notice that the extrapolation outside the range of the data is clearly bad. 
+# This is the downside to approximating a function with a polynomial. But this 
+# is a very real problem with every model: the model can never tell you if 
+# the behaviour is true when you start extrapolating outside the range of 
+# the data that you have seen. 
