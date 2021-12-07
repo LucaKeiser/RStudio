@@ -12,7 +12,7 @@ options(na.action = na.warn)
 
 # A simple model ----------------------------------------------------------
 
-sim1 <- sim1
+data(sim1)
 
 # sim1-data set
 ggplot(data = sim1, aes(x = x, y = y)) +
@@ -183,9 +183,9 @@ coef(sim1_mod)
 ## Exercises --------------------------------------------------------------
 
 # 1)
-# One downside of the linear model is that it is **sensitive to 
+# One downside of the linear model is that it is **sensitive** to 
 # unusual values because the distance incorporates a squared 
-# term**. Fit a linear model to the simulated data below, and 
+# term. Fit a linear model to the simulated data below, and 
 # visualise the results. Rerun a few times to generate different 
 # simulated datasets. What do you notice about the model?
 
@@ -221,7 +221,7 @@ ggplot(sim1b, aes(x = x, y = y)) +
 
 tibble(
   x = seq(-5, 5, length.out = 5000),
-  normal = dnorm(x),
+  normal = dnorm(x, mean = 0, sd = 1),
   student_t = dt(x, df = 2)
 ) %>% 
   pivot_longer(cols = c(normal, student_t), 
@@ -247,14 +247,14 @@ measure_distance_2 <- function(mod, data) {
 # it to the linear model.
 
 
-# Newton-Raphson search
-newton_raphson <- optim(c(0, 0), measure_distance_2, data = sim1a)
-newton_raphson$par
+# Newton-Raphson search with measure_distance_2 (!)
+newton_raphson_2 <- optim(c(0, 0), measure_distance_2, data = sim1a)
+newton_raphson_2$par
 
 
 ggplot(sim1a, aes(x = x, y = y)) +
   geom_point(size = 1, alpha = 0.5) +
-  geom_abline(intercept = newton_raphson$par[1], slope = newton_raphson$par[2])
+  geom_abline(intercept = newton_raphson_2$par[1], slope = newton_raphson_2$par[2])
 
 
 # linear model
@@ -269,11 +269,18 @@ ggplot(sim1a, aes(x = x, y = y)) +
 
 
 # compare to measure_distance
-newton_raphson_2 <- optim(c(0, 0), measure_distance, data = sim1a)
-newton_raphson_2$par
+newton_raphson <- optim(c(0, 0), measure_distance, data = sim1a)
+newton_raphson$par
 
-# coefficients the same as the lm-coefficients!
+ggplot(sim1a, aes(x = x, y = y)) +
+  geom_point(size = 1, alpha = 0.5) +
+  geom_abline(intercept = newton_raphson$par[1], 
+              slope = newton_raphson$par[2])
 
+
+# compare the regression lines of the 3 models
+# coefficients and regression line with measure_distance are the same as the lm-coefficients!
+# measure_distance_2 is slightly different => calculated with another formula!
 
 
 
@@ -284,7 +291,7 @@ newton_raphson_2$par
 
 ## Predictions ------------------------------------------------------------
 
-# predictors tell us the pattern, the model has captured
+# predictors show us the pattern, the model has captured!
 
 # take a look at the sim1 data again
 View(sim1)
@@ -304,7 +311,7 @@ grid <- grid %>%
 grid
 
 
-# plot
+# plot => the predictors reduce the model (linear relationship between the data points)
 ggplot() +
   geom_point(data = sim1, aes(x = x, y = y)) +
   geom_line(data = grid, aes(x = x, y = pred),
@@ -315,7 +322,7 @@ ggplot() +
 
 ## Residuals (flip side of predictors) ------------------------------------
 
-# residuals tell you what the model has missed
+# residuals tell you what the model has missed!
 # residuals = y (observed values) - yhat (predicted values)
 
 # we need the original data set to calculate the residuals!
@@ -333,7 +340,7 @@ ggplot(sim1, aes(x = resid)) +
 mean(sim1$resid)
 
 ggplot(sim1, aes(x = x, y = resid)) + 
-  geom_ref_line(h = 0) +
+  geom_ref_line(h = 0, colour = "red") +
   geom_point()
 
 
@@ -365,33 +372,64 @@ sim1 <- sim1 %>%
   add_predictions(sim1_loess, var = "pred_loess")
 
 
-# plot
+sim1
+
+# plot predictors (loess)
 ggplot(data = sim1, aes(x = x, y = y)) +
   geom_point() +
-  geom_line(aes(x = x, y = pred_loess), color = "red")
+  geom_line(aes(x = x, y = pred_loess), color = "red", size = 1)
 
-# this is the standard method of geom_smooth...
+# NOTE: this is the default method of geom_smooth...
 ggplot(data = sim1, aes(x = x, y = y)) +
   geom_point() +
   geom_smooth(se = FALSE)
 
+# plot predictors (lm)
+ggplot(data = sim1, aes(x = x, y = y)) +
+  geom_point() + 
+  geom_line(aes(x = x, y = pred), color = "red", size = 1)
 
-# compare the residuals
+# NOTE: this is another method of geom_smooth...
+ggplot(data = sim1, aes(x = x, y = y)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE)
+
+
+# compare the residuals (!)
 ggplot(data = sim1) +
-  geom_ref_line(h = 0) + 
+  geom_ref_line(h = 0, colour = "black") + 
   # lm
   geom_point(aes(x = x, y = resid), color = "red") +
-  # loess (in genereal smaller residuals within (!) the sample)
+  # loess 
   geom_point(aes(x = x, y = resid_loess), color = "blue")
 
-
+# loess has in general smaller residuals within (!) the sample...
 
 
 
 
 # Categorical variables ---------------------------------------------------
 
-# dummy-trap
+
+# Generating a function from a formula is straight forward when the predictor is 
+# continuous, but things get a bit more complicated when the predictor is **categorical**. 
+# Imagine you have a formula like y ~ sex, where sex could either be male or female. 
+# It doesn’t make sense to convert that to a formula like y = x_0 + x_1 * sex because 
+# sex isn’t a number - you can’t multiply it! Instead what R does is convert it to 
+# y = x_0 + x_1 * sex_male where sex_male is one if sex is male and zero otherwise:
+
+df <- tribble(
+  ~ sex, ~ response,
+  "male", 1,
+  "female", 2,
+  "male", 1
+)
+
+df
+
+model_matrix(df, response ~ sex)
+
+# **dummy-trap**
 # You might wonder why R also doesn’t create a sexfemale column. The problem 
 # is that would create a column that is perfectly predictable based on the 
 # other columns (i.e. sexfemale = 1 - sexmale). Unfortunately the exact details 
@@ -399,13 +437,10 @@ ggplot(data = sim1) +
 # creates a model family that is too flexible, and will have infinitely many 
 # models that are equally close to the data.
 
-# in the background R creates a reference category
-model_matrix(sim3, y ~ x1 + x2)
-
-
-sim2 <- sim2
 
 # plot
+data(sim2)
+View(sim2)
 ggplot(sim2, aes(x = x , y = y)) +
   geom_point()
 
@@ -415,14 +450,15 @@ mod2 <- lm(y ~ x, data = sim2)
 
 grid <- sim2 %>% 
   data_grid(x) %>% 
+  # again one perditor per x value...
   add_predictions(mod2)
 
 grid
 
 
-
-# Effectively, a model with a categorical x will predict 
+# Effectively, a model with a categorical X-variable will predict 
 # the mean value for each category!
+# Why? Because the mean minimises the root-mean-squared distance!
 ggplot(data = sim2, aes(x = x, y = y)) +
   geom_point() +
   geom_point(data = grid, aes(x = x, y = pred), 
@@ -430,25 +466,45 @@ ggplot(data = sim2, aes(x = x, y = y)) +
              size = 2)
 
 
-
+# compare to the regression-output!
+mod2
+# xa is the reference category
+# the coefficients tell you the difference between the mean values!
+# for example if you switch form xa (mean = 1.15) to xb (mean = 8.12)
+# the coefficient is 8.12 - 1.15 = 6.96
+# etc.!
 
 
 # Interactions (continuous and categorical) -------------------------------
 
-sim3 <- sim3
+data(sim3)
 
+# what happens if you have a contonuous and a categorical predictors?
+# lets take a look! x1 = continuous, x2 = categorical
 ggplot(data = sim3, aes(x = x1, y = y)) +
   geom_point(aes(color = x2))
 
 
 # 2 possible models
+# 1. 
 mod1 <- lm(y ~ x1 + x2, data = sim3)
 
+# 2.
+mod2 <- lm(y ~ x1 * x2, data = sim3)
 # y ~ x1 * x2 is translated to y = a_0 + a_1 * x1 + a_2 * x2 + a_12 * x1 * x2
 # Note that whenever you use *, both the interaction AND 
 # the individual components are included in the model.
-mod2 <- lm(y ~ x1 * x2, data = sim3)
 
 
+# visualise these two models
+# create a data-grid
+grid <- sim3 %>% 
+  # now we need both variables!
+  data_grid(x1, x2) %>% 
+  # gather the predictions form both models in one step
+  gather_predictions(mod1, mod2)
+
+
+View(grid)
 
 
