@@ -621,7 +621,7 @@ p1 + p2
 # y = a_1 + a_2 * x + a_3 * x^2 + a_4 * x ^ 3. 
 # Typing that sequence by hand is tedious, so R provides a helper function: poly():
 
-# NOTE: you can always take a look, what R is doing in the "backgroud"
+# NOTE: you can always take a look, what R is doing in the "background"
 
 df <- tribble(
   ~y, ~x,
@@ -632,10 +632,10 @@ df <- tribble(
 
 model_matrix(df, y ~ poly(x, 2))
 
-# Outside the range of the data, polynomials rapidy shoot off to + or - inf
+# Outside the range of the data, polynomials rapidly shoot off to + or - inf
 # => be careful with poly()
 
-# better use spline()!
+# better use splines!
 
 library(splines)
 
@@ -653,6 +653,7 @@ sim5 <- tibble(
 )
 
 
+# No noise
 sim5_NoNoise <- tibble(
   x = seq(0, 3.5 * pi, length = 50),
   y = 4 * sin(x)
@@ -705,3 +706,219 @@ ggplot(data = sim5_NoNoise, aes(x = x, y = y)) +
 # is a very real problem with every model: the model can never tell you if 
 # the behaviour is true when you start extrapolating outside the range of 
 # the data that you have seen. 
+
+
+
+### Exercises -------------------------------------------------------------
+
+# 1)
+# What happens if you repeat the analysis of sim2 using a model without an 
+# intercept. What happens to the model equation? What happens to the predictions?
+
+data(sim2)
+
+mod_1 <- lm(y ~ x, data = sim2)
+# remove intercept
+mod_2 <- lm(y ~ x - 1, data = sim2)
+
+# create a grid
+grid <- sim2 %>% 
+  data_grid(x) %>% 
+  spread_predictions(mod_1, mod_2)
+
+grid
+# the predictions are the same!
+
+
+# coefficients are different!
+summary(mod_1)
+# with the intercept => xa as reference category
+summary(mod_2)
+# without the intercept => no reference category
+
+
+
+# 2)
+# Use model_matrix() to explore the equations generated for the models 
+# I fit to sim3 and sim4. Why is * a good shorthand for interaction?
+
+model_matrix(y ~ x1 * x2, data = sim3)
+model_matrix(y ~ x1 * x2, data = sim4)
+
+
+# The asterisk * is good shorthand for an interaction since an interaction 
+# between x1 and x2 includes terms for x1, x2, and the product of x1 and x2.
+
+
+
+# 3)
+# Using the basic principles, convert the formulas in the following two models 
+# into functions. (Hint: start by converting the categorical variable 
+# into 0-1 variables.)
+
+
+### mod1
+mod1 <- lm(y ~ x1 + x2, data = sim3)
+
+# create function (special case of model_matrix()) => hard coded!
+# creating dummy-variables!
+model_matrix_mod1 <- function(.data) {
+  mutate(.data,
+         # using the fact that locigals can be
+         # represented with 0s and 1s
+         x2b = as.numeric(x2 == "b"),
+         x2c = as.numeric(x2 == "c"),
+         x2d = as.numeric(x2 == "d"),
+         `(Intercept)` = 1) %>% 
+    select(`(Intercept)`, x1, x2b, x2c, x2d)
+}
+
+model_matrix_mod1(sim3)
+
+
+
+# create funciton (special case of model_matrix()) => not hard coded!
+model_matrix_mod1b <- function(.data){
+  
+  # crab the levels of the categorial variable
+  lvls <- levels(.data$x2)
+  
+  # drop the first level (reference categoriy)
+  lvls <- lvls[2:length(lvls)]
+  
+  # create indicator variable for each level of x2
+  for (lvl in lvls) {
+    
+    # new column name x2 + level name
+    varname <- str_c("x2", lvl)
+    
+    # add indicator variable for lvl
+    .data[[varname]] <- as.numeric(.data$x2 == lvl)
+  }
+  
+  # generate list of variables to keep
+  x2_variables <- str_c("x2", lvls)
+  
+  # add an intercept
+  .data[["(Intercept)"]] <- 1
+  
+  # keep x1 and x2 indicator variables
+  select(.data, `(Intercept)`, x1, all_of(x2_variables))
+}
+
+model_matrix_mod1b(sim3)
+
+
+
+### mod2
+mod2 <- lm(y ~ x1 * x2, data = sim3)
+
+# create function (special case of model_matrix()) => hard coded!
+model_matrix_mod2 <- function(.data) {
+  mutate(.data,
+         `(Intercept)` = 1,
+         x2b = as.numeric(x2 == "b"),
+         x2c = as.numeric(x2 == "c"),
+         x2d = as.numeric(x2 == "d"),
+         `x1:x2b` = x1 * x2b,
+         `x1:x2c` = x1 * x2c,
+         `x1:x2d` = x1 * x2d) %>% 
+    select(`(Intercept)`, x1, x2b, x2c, x2d, `x1:x2b`, `x1:x2c`, `x1:x2d`)
+}
+
+model_matrix_mod2(sim3)
+
+
+
+# create function (special case of model_matrix()) => not hard coded!
+# use model_matrix_mod1b()
+model_matrix_mod2b <- function(.data){
+  
+  # get dataset with x1 and x2 indicator variables
+  out <- model_matrix_mod1b(.data)
+  
+  # get names of the x2 indicator columns
+  # ^ to match the start of the string.
+  x2cols <- str_subset(colnames(out), "^x2")
+  
+  # create interactions between x1 and the x2 indicator columns
+  for (varname in x2cols) {
+    
+    # name of the interaction variable
+    newvar <- str_c("x1:", varname)
+    out[[newvar]] <- out$x1 * out[[varname]]
+  }
+  
+  # print 
+  out
+  
+}
+
+model_matrix_mod2b(sim3)
+
+
+
+# 4)
+# For sim4, which of mod1 and mod2 is better? I think mod2 does a slightly 
+# better job at removing patterns, but it’s pretty subtle. Can you come 
+# up with a plot to support my claim?
+
+mod1 <- lm(y ~ x1 + x2, data = sim4)
+mod2 <- lm(y ~ x1 * x2, data = sim4)
+
+# take a look at the residuals
+# gahter them first
+sim4_mods <- sim4 %>% 
+  gather_residuals(mod1, mod2)
+
+sim4_mods
+
+
+# plot => frequency plot!
+ggplot(data = sim4_mods, aes(x = resid, color = model)) +
+  geom_freqpoly(bins = 15) +
+  geom_rug()
+
+# absolute values
+ggplot(data = sim4_mods, aes(x = abs(resid), color = model)) +
+  geom_freqpoly(bins = 15) + 
+  geom_rug()
+
+# not much difference between the residuals visible...
+#  However, mod2 appears to have fewer residuals in the tails 
+# of the distribution between 2.5 and 5 (although the most extreme 
+# residuals are from mod2.
+# => not really clear
+
+
+# calculate the standard deviations
+sim4_mods %>% 
+  group_by(model) %>% 
+  summarise(sd = sd(resid))
+
+# mod2 has a slightly smaller sd => performs better
+
+
+
+
+## Missing values --------------------------------------------------------
+
+# Missing values obviously can not convey any information about the relationship 
+# between the variables, so modelling functions will drop any rows that contain 
+# missing values. R’s default behaviour is to silently drop them, but 
+# options(na.action = na.warn) (run in the prerequisites), makes sure you get a warning.
+
+# check out exactely how many observations were used
+nobs(mod1)
+nobs(mod2)
+
+
+
+# This chapter has focussed exclusively on the class of linear models, which 
+# assume a relationship of the form y = a_1 * x1 + a_2 * x2 + ... + a_n * xn. 
+# Linear models additionally assume that the residuals have a normal distribution - 
+# which we haven’t talked about - and that the response is continuous. 
+
+
+# for further information: 
+# => https://r4ds.had.co.nz/model-basics.html#other-model-families
