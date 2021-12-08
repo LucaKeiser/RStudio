@@ -6,7 +6,7 @@ library(tidyverse)
 library(modelr)
 
 # NA's are not silently dropped
-options(na.action = na.warn)
+options(na.action = "na.warn")
 
 
 
