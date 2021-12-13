@@ -273,3 +273,4 @@ diamonds2 %>%
   select(price, pred, pred_inaccuracy, carat:table, x:z) %>% 
   arrange(price) %>% 
   View()
+
