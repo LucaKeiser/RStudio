@@ -1,0 +1,182 @@
+---
+title: "Wine Ratings"
+author: "Luca"
+date: "17/12/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+load packages
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+
+theme_set(theme_light())
+```
+
+
+## Get the data
+
+```{r}
+wine_ratings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-05-28/winemag-data-130k-v2.csv")
+
+wine_ratings
+
+view(wine_ratings)
+```
+
+
+### Clean up
+
+```{r}
+wine_ratings_clean <- wine_ratings %>% 
+  select(-`...1`) %>% 
+  # pull out the year with a regular expression!
+  
+  # 1. attempt:
+  #extract(title, "year", "(\\d\\d\\d\\d)", 
+  
+  # 2. attempt (fist digits has to be 1 or 2; second digit has to be 9 or 0):
+  # extract(title, "year", "([12][90]\\d\\d)",
+  
+  # 3. attempt (just take the years > 2000)
+  extract(title, "year", "(20\\d\\d)", 
+         convert = TRUE,
+          remove = FALSE)
+```
+
+
+## Take a Look at the Distributions first
+
+```{r}
+wine_ratings_clean %>% 
+  count(country, sort = TRUE)
+
+wine_ratings_clean %>% 
+  count(designation, sort = TRUE)
+
+wine_ratings_clean %>% 
+  count(country, region_1, sort = TRUE)
+
+wine_ratings_clean %>% 
+  count(taster_name, sort = TRUE)
+
+wine_ratings_clean %>% 
+  count(variety, sort = TRUE)
+
+wine_ratings_clean %>% 
+  filter(!is.na(designation)) %>% 
+  count(designation, variety, sort = TRUE)
+
+
+# some data error => we need to fix the regular expression!
+wine_ratings_clean %>% 
+  ggplot(aes(year)) + 
+  geom_histogram()
+
+
+wine_ratings_clean %>% 
+  ggplot(aes(points)) +
+  geom_histogram(binwidth = 1)
+
+# if we want to predict the price we must take the log(price)!
+wine_ratings_clean %>% 
+  ggplot(aes(price)) +
+  geom_histogram() +
+  scale_x_log10()
+```
+
+
+
+## Try to Predict the Points with a lm-Model
+
+
+1) Price
+```{r}
+## log(price)
+ggplot(wine_ratings_clean, aes(price, points))+ 
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = "lm") +
+  scale_x_log10()
+
+
+summary(lm(points ~ log2(price), data = wine_ratings_clean))
+# every time the price doubles, the expected numer of points goes up by 2!
+# clear linear trend
+
+```
+
+
+2) Country
+
+```{r}
+
+# box plots
+# NOTE: this does not (!) control for price! Our linear model above does (c.p.!)!
+wine_ratings_clean %>% 
+  
+  # country has to many levels => fct_lump!
+  # set US as reference category => compared to the US!
+  # NOTE: the base-level does not have any effect on the predictions just changes
+  # to which country the numbers are relative to!
+  # what is the most reasonable reference category?
+  mutate(country = fct_lump(country, 7),
+         country = fct_relevel(country, "US"),
+         country = fct_reorder(country, points)) %>% 
+  
+  ggplot(aes(country, points)) +
+    geom_boxplot()
+
+
+# are these differences significant or just due to change?
+# => include coutnry in the model!
+wine_ratings_clean %>% 
+  mutate(country = fct_relevel(fct_lump(country, 7), "US")) %>% 
+  lm(points ~ log2(price) + country, data = .) %>% 
+  summary()
+
+# all p-values are significant
+```
+
+
+
+3) Year
+
+```{r}
+wine_ratings_clean %>% 
+  ggplot(aes(year, points, group = year)) +
+  geom_boxplot()
+
+# OR
+wine_ratings_clean %>% 
+  group_by(year) %>% 
+  summarise(points = mean(points)) %>% 
+  ggplot(aes(year, points)) +
+  geom_line()
+
+
+wine_ratings_clean %>% 
+  group_by(year) %>% 
+  count()
+# 2017 just ha 11 observations => could be noise!
+
+
+# include year as a predictor (compare R-squared-values!)
+wine_ratings_clean %>% 
+  mutate(country = fct_relevel(fct_lump(country, 7), "US")) %>% 
+  lm(points ~ log2(price) + country + year, data = .) %>% 
+  summary()
+
+# all p-values are significant
+```
+
+
+```{r}
+
+```
+
+
+
