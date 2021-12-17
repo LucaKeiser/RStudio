@@ -15,7 +15,19 @@ library(tidytuesdayR)
 library(scales)
 
 theme_set(theme_light())
+
+# does matter in combination with the broom-package!
+# otherwise the augment()-function throws an error!
+# options(na.action = "na.exclude")
+
+# Error: Assigned data `predict(x, na.action = na.pass, ...) %>% unname()` must be compatible with existing data.
+# x Existing data has 120975 rows.
+# x Assigned data has 115096 rows.
+# i Only vectors of size 1 are recycled.
 ```
+
+Further Details:
+When the modeling was performed with na.action = "na.omit" (as is the typical default), rows with NA in the initial data are omitted entirely from the augmented data frame. When the modeling was performed with na.action = "na.exclude", one should provide the original data as a second argument, at which point the augmented data will contain those rows (typically with NAs in place of the new columns). If the original data is not provided to augment() and na.action = "na.exclude", a warning is raised and the incomplete rows are dropped.
 
 
 ## Get the data
@@ -25,7 +37,7 @@ wine_ratings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascien
 
 wine_ratings
 
-view(wine_ratings)
+# view(wine_ratings)
 ```
 
 
@@ -45,7 +57,9 @@ wine_ratings_clean <- wine_ratings %>%
   # 3. attempt (just take the years > 2000)
   extract(title, "year", "(20\\d\\d)", 
          convert = TRUE,
-          remove = FALSE)
+         remove = FALSE)  %>% 
+  mutate(year = ifelse(year < 1900, NA, year)) %>%
+  filter(!is.na(price))
 ```
 
 
@@ -91,8 +105,11 @@ wine_ratings_clean %>%
 
 
 
-## Try to Predict the Points with a lm-Model
+############################### Linear Model ###############################
 
+## NOTE: if we create a model, the NAs are automatically dropped!
+## This will be important if we try to visualize the model with the
+## broom-package!
 
 1) Price
 ```{r}
@@ -186,12 +203,108 @@ wine_ratings_clean %>%
 
 
 wine_ratings_clean %>% 
-  replace_na(list(taster_name = "Missing")) %>% 
+  replace_na(list(taster_name = "Missing", country = "Missing")) %>% 
   mutate(country = fct_relevel(fct_lump(country, 7), "US"),
          taster_name = fct_relevel(fct_lump(taster_name, 6), "Missing")) %>% 
-  lm(points ~ log2(price) + country + year + taster_name, data = .) %>% 
-  summary()
+  lm(points ~ log2(price) + country + year + taster_name, data = .)
+
+
 ```
 
+
+Broom-Package to Visualize the model
+
+```{r}
+# we have a lot of factors => plot them in a good way
+# use broom => converts statistical objects into tidy tibbles!
+# coefficient-plot!
+library(broom)
+
+
+
+############################# SIDENOTE ############################# 
+
+# lm => removes NAs automatically!
+# original
+wine_ratings_clean %>% 
+  nrow()
+
+# model-setting
+wine_ratings_clean %>% 
+  replace_na(list(taster_name = "Missing")) %>% 
+  select(points, price, country, year, taster_name) %>% 
+  drop_na() %>% 
+  nrow()
+
+# difference: 5879 cases
+
+# so we first need to take care of the NAs!
+# here we just drop them...
+
+# create separate tibble
+wine_ratings_clean_no_NAs <- wine_ratings_clean %>% 
+  replace_na(list(taster_name = "Missing")) %>% 
+  select(points, price, country, year, taster_name) %>% 
+  drop_na()
+
+wine_ratings_clean_no_NAs
+
+
+# create the model again and store it as object...
+model <- wine_ratings_clean_no_NAs %>% 
+  replace_na(list(taster_name = "Missing", country = "Missing")) %>% 
+  mutate(country = fct_relevel(fct_lump(country, 7), "US"),
+         taster_name = fct_relevel(fct_lump(taster_name, 6), "Missing")) %>% 
+  lm(points ~ log2(price) + country + year + taster_name, data = .) 
+
+####################################################################
+
+
+
+model %>% 
+
+  # use the broom-package
+  # include the confidence-interval
+  broom::tidy(conf.int = TRUE,
+              conf.level = 0.95) %>% 
+  
+  # remove the intercept
+  filter(term != "(Intercept)") %>% 
+  # cleaning the names
+  mutate(term = str_replace(term, "country", "Country: "),
+         term = str_replace(term, "taster_name", "Taster: "),
+         term = str_replace(term, "year", "Year"),
+         term = fct_reorder(term, estimate)) %>% 
+  
+  ggplot(aes(estimate, term)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high))
+
+# price and country = Spain have an high positive impact on the points
+# if Michael Schnacher rates the wine => negative impact on the points
+# etc.
+
+
+# visualize the R^2
+# add the predictions with broom::augment()
+model %>%   
+  broom::augment(data = wine_ratings_clean_no_NAs) %>% 
+  
+  # predicted points and actual points
+  ggplot(aes(.fitted, points)) +
+  geom_point(alpha = 0.1)
+
+# the model explains some of the variance...
+
+
+# wich predictor has the highest explanatory power concerning the variance?
+stats::anova(model) %>% 
+  broom::tidy() %>% 
+  mutate(proportion = sumsq / sum(sumsq)) %>% 
+  arrange(desc(proportion))
+# most of the variance is still not explained (residuals...)
+# price explains a lot of the variance!
+
+```
 
 
