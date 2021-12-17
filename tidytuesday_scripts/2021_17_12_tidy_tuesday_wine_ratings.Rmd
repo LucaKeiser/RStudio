@@ -174,8 +174,23 @@ wine_ratings_clean %>%
 ```
 
 
-```{r}
+4) Taster Name
 
+```{r}
+wine_ratings_clean %>% 
+  mutate(taster_name = fct_lump(taster_name, 10),
+         taster_name = fct_reorder(taster_name, points)) %>% 
+  ggplot(aes(taster_name, points)) +
+  geom_boxplot() +
+  coord_flip()
+
+
+wine_ratings_clean %>% 
+  replace_na(list(taster_name = "Missing")) %>% 
+  mutate(country = fct_relevel(fct_lump(country, 7), "US"),
+         taster_name = fct_relevel(fct_lump(taster_name, 6), "Missing")) %>% 
+  lm(points ~ log2(price) + country + year + taster_name, data = .) %>% 
+  summary()
 ```
 
 
