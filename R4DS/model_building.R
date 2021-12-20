@@ -118,7 +118,7 @@ diamonds2 %>%
 
 # make the pattern explicit!
 mod_diamond <- lm(price_log ~ carat_log, data = diamonds2)
-
+summary(mod_diamond)
 
 # grid first!
 # grid contains 4 variables (carat, carat_log, price_log, price)
@@ -128,7 +128,8 @@ grid <- diamonds2 %>%
   add_predictions(mod_diamond, "price_log") %>% 
   # undo the log-transformation to overlay the predictions
   # on the raw data
-  mutate(price = 2 ^ price_log)
+  mutate(price = 2 ^ price_log) %>% 
+  relocate(price, price_log, carat, carat_log)
 
 # visualize
 diamonds2 %>% 
@@ -137,7 +138,7 @@ diamonds2 %>%
     # take the model predictions!
     geom_line(data = grid, colour = "red", size = 1)
 
-# the large diamonds (big carat-number) are cheaper than expected
+# large diamonds (big carat-number) are cheaper than expected
 
 
 # Did we removed the linear pattern?
@@ -145,7 +146,7 @@ diamonds2 %>%
 # NOTE: the residuals are the part of the data which cannot be
 # explained by the model itself!
 
-# add resididuals to the data set
+# add residuals to the data set
 diamonds2 <- diamonds2 %>% 
   add_residuals(mod_diamond, "resid_log")
 
@@ -183,11 +184,12 @@ diamonds2 %>%
 # the y axis, we need to think about what the residuals are telling 
 # us, and what scale they are on:
 # A residual of -1 indicates that price_log was 1 unit lower than a 
-# prediction based solely on its weight. 2^−1 is 1/2, points with a value 
+# prediction based solely on its weight. 2^−1 is 1/2. So, points with a value 
 # of -1 are half the expected price (without taking the weight into account, 
-# we overestimated the price). 
+# we overestimated the price of this points). 
 # And residuals with value 1 (2^1 = 2) are twice the predicted price 
-# (without taking the weight into account, we underestimated the price).
+# (without taking the weight into account, we underestimated the price
+# of this points).
 
 
 
@@ -200,13 +202,16 @@ diamonds2 %>%
 # we also make explicit the effect of these three categorical variables
 
 mod_diamonds2 <- lm(price_log ~ carat_log + color + cut + clarity, data = diamonds2)
+summary(mod_diamonds2)
 
-# this model now includes 4 predictors and is thus getting harder to visualize
+# this model now includes 4 predictors (3 of them are categorical variables with multiple levels!
+# => they are represented as factors  here...) and is thus getting harder to visualize.
 # Fortunately, they’re currently all independent which means that we can plot 
 # them individually in four plots.
 # NOTE: the residuals of this model are now independent of the effects of the 4
 # variables (residuals are the part of the model, which are not explained through
 # the model itself...)
+
 
 # what is the effect of the variables all other things being equal (ceteris paribus(!))?
 
@@ -257,15 +262,15 @@ grid %>%
 
 # take a look at the residuals of the 2. model
 diamonds2 <- diamonds2 %>% 
-  add_residuals(mod_diamonds2, "resid_lod2")
+  add_residuals(mod_diamonds2, "resid_log")
 
-ggplot(diamonds2, aes(carat_log, resid_lod2)) + 
+ggplot(diamonds2, aes(carat_log, resid_log)) + 
   geom_hex(bins = 50)
 
 # there are some outliers visible...
 # take a closer look
 diamonds2 %>% 
-  filter(abs(resid_lod2) > 1) %>% 
+  filter(abs(resid_log) > 1) %>% 
   add_predictions(mod_diamonds2) %>% 
   # undo the log => predicted price
   mutate(pred = round(2 ^ pred),
@@ -273,4 +278,157 @@ diamonds2 %>%
   select(price, pred, pred_inaccuracy, carat:table, x:z) %>% 
   arrange(price) %>% 
   View()
+
+
+
+### Exercises -------------------------------------------------------------
+
+# 1)
+# In the plot of carat_log vs. price_log, there are some bright vertical strips. What do they represent?
+
+diamonds2 %>% 
+  ggplot(aes(carat_log, price_log)) +
+  geom_point(alpha = 0.1)
+
+diamonds2 %>% 
+  ggplot(aes(carat, price)) +
+  geom_point(alpha = 0.1)
+
+# The distribution of diamonds has more diamonds at round or otherwise human-friendly numbers (fractions).
+
+
+
+# 2)
+# If log(price) = a_0 + a_1 * log(carat), what does that say about the relationship between price and carat?
+
+mod_diamond <- lm(price_log ~ carat_log, data = diamonds2)
+summary(mod_diamond)
+
+grid <- diamonds2 %>% 
+  data_grid(carat = seq(0, 5, by = 0.25)) %>%
+  # need to add carat_log!
+  mutate(carat_log = log2(carat)) %>% 
+  add_predictions(model = mod_diamond, "pred_log") %>% 
+  mutate(pred = 2^pred_log) %>% 
+  relocate(carat, carat_log, pred, pred_log)
+  
+
+grid %>% 
+  ggplot(aes(x = carat, y = pred)) + 
+  geom_line()
+
+# the relationship is not linear...
+
+# if you double the carat number, the price increases by factor 3.2
+# 1.
+grid %>% 
+  filter(carat == 1 | carat == 2) %>% 
+  summarise(ratio = pred[2] / pred[1])
+
+# 2.
+# 2^ is needed because the model uses log2()-values!
+2^coef(mod_diamond)[2]
+
+
+
+######################### SIDE NOTE #########################
+
+# interpretation of coefficients
+
+## 1. linear-linear
+# a 1 unit change in x is associated with a β change in y.
+
+## 2. linear-log
+# a 1% percentage change in x is associated with a 0.01*β-percent change in y.
+
+## 3. log-linear
+# a 1 unit change in x is associated with a 100*β-percent change in y.
+
+## 4. log-log
+# a 1% percentage change in x is associated with a β-percent change in y.
+
+
+#############################################################
+
+
+
+# 3)
+# Extract the diamonds that have very high and very low residuals. 
+# Is there anything unusual about these diamonds? Are they particularly 
+# bad or good, or do you think these are pricing errors?
+
+# remember the data/model again
+
+# mod_diamonds2 <- lm(price_log ~ carat_log + color + cut + clarity, data = diamonds2)
+# summary(mod_diamonds2)
+# 
+# diamonds2 <- diamonds %>% 
+#   # take care of outliers
+#   filter(carat <= 2.5) %>% 
+#   
+#   # transform the variables 
+#   # => makes the relationship linear
+#   # => and the distribution symmetrical
+#   mutate(price_log = log2(price),
+#          carat_log = log2(carat)) %>% 
+#   
+#   # add predictions and residuals
+#   add_predictions(mod_diamonds2, "pred_log") %>% 
+#   add_residuals(mod_diamonds2, "resid_log") %>% 
+#   
+#   # transform
+#   mutate(pred = 2^pred_log) %>%
+#   mutate(resid = 2^resid_log)
+# 
+# 
+
+diamonds2 %>% 
+  filter(abs(resid_log) > 1) %>%
+  # add predictions
+  add_predictions(mod_diamonds2, "pred_log") %>% 
+  mutate(pred = 2^pred_log) %>% 
+  select(price, price_log, pred, pred_log, carat, carat_log, cut, color, clarity, depth) %>% 
+  arrange(price)
+
+
+
+
+
+# 4)
+# Does the final model, mod_diamonds2, do a good job of predicting diamond prices? 
+# Would you trust it to tell you how much to spend if you were buying a diamond?
+
+
+# plot the resiudals of the model
+diamonds2 %>% 
+  ggplot(aes(carat_log, resid_log)) + 
+  geom_hex(bins = 50) + 
+  geom_hline(yintercept = 0,
+             lty = 2, 
+             size = 2,
+             color = "red")
+
+mod_diamonds2_summary <- diamonds2 %>% 
+  summarise(
+    # root mean squared error
+    rmse = sqrt(mean(resid_log^2)),
+    # mean absolute error
+    mae = mean(abs(resid_log)),
+    # 95% of the residuals are within this range
+    p025 = quantile(resid_log, 0.025),
+    p975 = quantile(resid_log, 0.975))
+
+mod_diamonds2_summary
+
+summary(mod_diamond)
+summary(mod_diamonds2)
+
+
+
+
+
+
+
+
+
 
