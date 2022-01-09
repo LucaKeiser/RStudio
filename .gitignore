@@ -1,4 +1,8 @@
+*.sav
 *.csv
+*.rds
+*.Rproj
+*.Rproj.user
 *.Rproj.user
 *.Rhistory
 *.RData

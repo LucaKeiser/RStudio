@@ -23,7 +23,7 @@ library(nycflights13)
 library(lubridate)
 
 
-### Why are low quality diamonds more expensive?
+# Why are low qualitiy diamonds more expensive? ---------------------------
 
 diamonds %>% 
   ggplot(aes(cut, price)) +
@@ -52,9 +52,9 @@ diamonds %>%
 
 
 
-# modeling ----------------------------------------------------------------
+## modeling ---------------------------------------------------------------
 
-## A first model ----------------------------------------------------------
+### A first model ---------------------------------------------------------
 
 # we can see which attributes of the diamond affect the relative price 
 # by fitting a model to separate out (!) the effect of carat. 
@@ -114,7 +114,7 @@ diamonds2 %>%
 # We first make the pattern explicit by fitting a model:
 
 
-## 1. model ---------------------------------------------------------------
+### 1. model --------------------------------------------------------------
 
 # make the pattern explicit!
 mod_diamond <- lm(price_log ~ carat_log, data = diamonds2)
@@ -194,7 +194,7 @@ diamonds2 %>%
 
 
 
-## a more complex model ---------------------------------------------------
+### a more complex model --------------------------------------------------
 
 # we could continue to build up our model, moving the effects we’ve observed 
 # into the model to make them explicit.
@@ -281,7 +281,7 @@ diamonds2 %>%
 
 
 
-### Exercises -------------------------------------------------------------
+## Exercises --------------------------------------------------------------
 
 # 1)
 # In the plot of carat_log vs. price_log, there are some bright vertical strips. What do they represent?
@@ -346,7 +346,6 @@ grid %>%
 
 ## 4. log-log
 # a 1% percentage change in x is associated with a β-percent change in y.
-
 
 #############################################################
 
@@ -423,6 +422,257 @@ mod_diamonds2_summary
 summary(mod_diamond)
 summary(mod_diamonds2)
 
+
+
+
+
+
+
+
+
+
+
+
+# What affects the number of daily flights? -------------------------------
+
+nycflights13::flights
+
+# flights leaving NYC per day
+daily <- nycflights13::flights %>% 
+  mutate(date = make_date(year, month, day)) %>% 
+  group_by(date) %>% 
+  summarise(n = n())
+
+daily %>% 
+  ggplot(aes(date, n)) +
+  geom_line(group = 1) +
+  geom_hline(yintercept = mean(daily$n),
+             lty = 2,
+             size = 2,
+             color = "red") +
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b")
+
+
+## Day of week ------------------------------------------------------------
+
+# There is a very strong day-of-week effect that dominates the subtler patterns.
+# Let's start by looking at the distribution of flight numbers by day-of-week.
+
+daily <- daily %>% 
+  # get the weekdays!
+  mutate(wday = wday(date, label = TRUE)) %>% 
+  # relevel
+  mutate(wday = fct_relevel(wday, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")))
+
+daily %>% 
+  ggplot(aes(wday, n)) +
+  geom_boxplot()
+
+# fewer flights on the weekends => business flights are during the week
+# strong day-of-week effect
+# we can remove this effect by fitting a model and control for the weekdays.
+
+mod <- lm(n ~ wday, data = daily)
+mod
+
+# a grid with just 7 observations (1 prediciton per weekday!)
+grid <- daily %>% 
+  data_grid(wday) %>% 
+  add_predictions(mod, "n")
+
+# overlay the predictions on the raw data
+daily %>% 
+  ggplot(aes(wday, n)) +
+  geom_boxplot() +
+  geom_point(data = grid, 
+             color = "red",
+             size = 3)
+  
+
+
+# take a look at the residuals
+daily <- daily %>% 
+  add_residuals(mod)
+
+daily %>% 
+  ggplot(aes(date, resid)) +
+  geom_line() + 
+  geom_hline(yintercept = 0,
+             lty = 2,
+             color = "red") +
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b")
+
+# Note the change in the y-axis: now we are seeing the deviation from the expected number 
+# of flights, given the day of week (!). This plot is useful because now that we’ve removed much 
+# of the large day-of-week effect, we can see some of the subtler patterns that remain:
+
+
+# 1)
+# Our model seems to fail starting in June (big residuals): you can still see a strong regular pattern 
+# that our model hasn’t captured. Drawing a plot with one line for each day of the week 
+# makes the cause easier to see:
+
+daily %>% 
+  # filter(wday == "Sat") %>% 
+  ggplot(aes(date, resid, color = wday)) + 
+  geom_line() + 
+  geom_hline(yintercept = 0,
+             lty = 2, 
+             color = "red") +
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b")
+
+# our model fails to predict the number of flights especially on Saturdays 
+# (during summer too high, during fall too low...)
+
+
+# 2)
+# take a look at big residuals
+daily %>% 
+  filter(abs(resid) >= 100) %>% 
+  arrange(resid)
+
+# There are some days with far fewer flights than expected:
+# public holidays => New Year's Day, Thanksgiving, Christmas
+
+
+# 3)
+# there seems to be a smoother long term trend over the course of the year
+daily %>% 
+  ggplot(aes(date, resid)) +
+  geom_line() + 
+  geom_smooth(se = FALSE,
+              span = 0.2) + 
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b")
+
+# threre are fewer flights in January (and December), and more in summer (May-Sep). We cannot do much with
+# this pattern quantitatively beacuse we do not have enough observations...
+
+
+
+## Seasonal Saturday effect -----------------------------------------------
+
+# Take a closer look at Saturdays only
+
+daily %>% 
+  filter(wday == "Sat") %>% 
+  ggplot(aes(date, n)) + 
+  geom_line() + 
+  geom_point() +
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b") +
+  geom_hline(yintercept = mean(daily[daily$wday == "Sat", ]$n),
+             lty = 2,
+             color  = "red")
+
+# (We’ve used both points and lines to make it more clear what is data and what is interpolation.)
+
+# hypothesis: Summer holidays (School) => more flights during the summer 
+#             Winter holidays => less common to go away during this time...
+
+
+# Lets create a “term” variable that roughly captures the three school terms, and check our work with a plot:
+
+# we split up the year into spring, summer and fall
+term <- function(date) {
+  # convert numeric to factor with base::cut
+  cut(date, 
+      breaks = ymd(20130101, 20130605, 20130825, 20140101),
+      labels = c("spring", "summer", "fall")
+      )
+  }
+
+
+daily <- daily %>% 
+  mutate(term = term(date)) 
+
+
+daily %>% 
+  filter(wday == "Sat") %>% 
+  ggplot(aes(date, n, color = term)) +
+  geom_line() +
+  geom_point() +
+  scale_x_date(NULL, 
+               date_breaks = "1 month", 
+               date_labels = "%b") 
+
+
+
+# how does this new variable affect the other days of the week?
+daily %>% 
+  ggplot(aes(wday, n, color = term)) +
+  geom_boxplot()
+
+# looks like the term has a significant effect of the number of flights
+# so fitting a separate day of week effect for each term is reasonable
+# this improves the model but not as much as we might hope...
+
+mod1 <- lm(n ~ wday, data = daily)
+mod2 <- lm(n ~ wday * term, data = daily)
+
+daily %>% 
+  gather_residuals(without_term = mod1, with_term = mod2) %>% 
+  ggplot(aes(date, resid, color = model)) + 
+  geom_line(alpha = 0.75)
+
+
+
+# we can see the problem by overlaying the predictions from the model on the raw data
+grid <- daily %>% 
+  data_grid(wday, term) %>% 
+  add_predictions(mod2, "n")
+
+
+daily %>% 
+  ggplot(aes(wday, n)) +
+  geom_boxplot() +
+  geom_point(data = grid, color = "red") + 
+  facet_wrap(~ term)
+
+plot(mod2)
+
+# Our model is finding the mean effect, but we have a lot of big outliers, so mean 
+# tends to be far away from the typical value. We can alleviate this problem by using 
+# a model that is robust to the effect of outliers: MASS::rlm(). This greatly reduces 
+# the impact of the outliers on our estimates, and gives a model that does a good job of 
+# removing the day of week pattern:
+
+
+mod3 <- MASS::rlm(n ~ wday * term, data = daily)
+
+daily %>% 
+  add_residuals(mod3, "resid") %>% 
+  ggplot(aes(date, resid)) +
+  geom_line() +
+  geom_hline(yintercept = 0,
+             lty = 2, 
+             color  = "red")
+
+# compare to the other models
+daily_mod <- daily %>% 
+  gather_residuals(without_term = mod1,
+                   with_term = mod2,
+                   with_term_MASS = mod3)
+  
+ggplot() +
+  geom_line(data = filter(daily_mod, model != "with_term_MASS"),
+            aes(date, resid, color = model), 
+            alpha = 0.75) +
+  geom_line(data = filter(daily_mod, model == "with_term_MASS"),
+            aes(date, resid), color = "black") +
+  geom_hline(yintercept = 0,
+             lty = 2, 
+             color = "black",
+             size = 2) +
+  theme(legend.position = "none")
 
 
 
