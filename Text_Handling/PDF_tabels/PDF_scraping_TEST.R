@@ -3,7 +3,7 @@ library(tidyverse)
 library(pdftools)
 
 # get the pdf-file path
-file <- "PDF Scraping/IFZ Sustainable Investments Studie 2021 ES-1_removed.pdf"      
+file <- "Text_Handling/PDF_tabels/IFZ Sustainable Investments Studie 2021 ES-1_removed.pdf"      
 
 # read in the text
 pdf_document <- pdf_text(file) %>% 
