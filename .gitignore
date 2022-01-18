@@ -1,6 +1,7 @@
 *.sav
 *.csv
 *.rds
+*.txt
 *.Rproj
 *.Rproj.user
 *.Rproj.user
