@@ -7,7 +7,7 @@ library(quanteda)
 # readr::guess_encoding ---------------------------------------------------
 
 # get the right encoding
-spiegel_files <- list.files(here::here("data"), 
+spiegel_files <- list.files(here::here("Text_Handling", "Spiegel", "data"), 
                             full.names = TRUE)
 
 # Building a for loop to repeat the execution for each file
@@ -36,7 +36,7 @@ for (i in 1:length(spiegel_files)) {
 
 
 # read in the data with the right encoding
-spiegel_texts <- readtext::readtext(here::here("data"),
+spiegel_texts <- readtext::readtext(here::here("Text_Handling", "Spiegel", "data"),
                                     encoding = encoding)
 
 
