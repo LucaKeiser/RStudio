@@ -27,7 +27,7 @@ list_entry <- function(some_intput) {
 # create a list and convert -----------------------------------------------
 
 n_small <- 5
-list_of_list <-lapply(as.list(1:n_small), list_entry)
+list_of_list <-map(as.list(1:n_small), list_entry)
 
 
 # convert into a data frame or tibble
@@ -49,18 +49,21 @@ convert_function <- function(list_input) {
 }
 
 
+tictoc::tic()
+
 tibble_1 <- list_of_list %>%
   map(convert_function) %>%
   bind_rows() %>% 
   as_tibble()
 
+tictoc::toc()
 
 
 
 # performance test --------------------------------------------------------
 
 n_large <- 100000
-large_list_of_list <-lapply(as.list(1:n_large), list_entry)
+large_list_of_list <-map(as.list(1:n_large), list_entry)
 
 
 # define column names
@@ -80,7 +83,7 @@ convert_function_large <- function(large_list) {
 
 tictoc::tic()
 
-large_list_of_list %>% map_dfr(convert_function_large) %>% 
+tibble_2 <- large_list_of_list %>% map_dfr(convert_function_large) %>% 
   as_tibble()
 
 tictoc::toc()
