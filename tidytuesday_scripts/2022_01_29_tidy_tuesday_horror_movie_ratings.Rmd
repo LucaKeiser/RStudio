@@ -1,0 +1,277 @@
+---
+title: "Tidy Tuesday Horror Movie Ratings"
+author: "Luca"
+date: "29/01/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_light())
+
+horror_movies_raw <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-22/horror_movies.csv")
+```
+
+
+Most of the movies are since 2012
+
+```{r}
+horror_movies <- horror_movies_raw %>% 
+  arrange(desc(review_rating)) %>% 
+  extract(title, "year", "\\((\\d\\d\\d\\d)\\)$",
+          remove = FALSE,
+          convert = TRUE) %>% 
+  mutate(budget2 = parse_number(budget)) %>% 
+  # remove "Directed by (...)" and "With (...)
+  separate(plot, c("director", "cast_sentence", "plot"),
+           extra = "merge",
+           sep = "\\. ",
+           fill = "right") %>% 
+  distinct(title, .keep_all = TRUE)
+
+
+# only NAs could not be parsed =>  good
+horror_movies %>% 
+  filter(is.na(budget2)) %>% 
+  count(budget, sort = TRUE)
+
+
+horror_movies <- horror_movies %>% 
+  select(-budget) %>% 
+  rename("budget" = budget2)
+```
+
+
+"Data quality" - Proportion of NAs
+
+```{r}
+horror_movies %>% 
+  summarise(across(everything(), ~mean(is.na(.)))) %>% 
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Proportion_NA") %>% 
+  mutate(Percent_NA = Proportion_NA * 100)
+```
+
+
+```{r}
+horror_movies %>% 
+  count(genres, sort = TRUE)
+
+horror_movies %>% 
+  count(language, sort = TRUE)
+
+
+horror_movies %>% 
+  ggplot(aes(budget)) +
+  geom_histogram() + 
+  scale_x_log10(labels = scales::dollar_format())
+  
+```
+
+
+Do higher budget movies end up higher rated?
+
+```{r}
+horror_movies %>% 
+  ggplot(aes(budget, review_rating)) +
+  scale_x_log10(labels = scales::dollar_format()) +
+  geom_point() + 
+  geom_smooth(method = "lm")
+
+
+cor(x = log10(horror_movies$budget),
+    y = horror_movies$review_rating,
+    use = "complete.obs")
+
+```
+
+No realtionship between budget and rating...
+
+How about movie rating and review?
+
+```{r}
+horror_movies %>% 
+  mutate(movie_rating = fct_lump(movie_rating, 5),
+         movie_rating = fct_reorder(movie_rating, review_rating,
+                                    na.rm = TRUE)) %>%
+  ggplot(aes(movie_rating, review_rating)) + 
+  geom_boxplot() + 
+  coord_flip()
+
+# is there a relationship? => anova (analyse the variance)!
+horror_movies %>%
+  filter(!is.na(movie_rating)) %>% 
+  mutate(movie_rating = fct_lump(movie_rating, 5)) %>% 
+  lm(review_rating ~ movie_rating, data = .) %>% 
+  anova()
+  
+# F-test is significant => there is more variation than we would expect by chance...
+```
+
+
+```{r}
+horror_movies %>% 
+  # movies in more than one genre get copied (Horror as baseline, because every movie is in it)
+  separate_rows(genres, sep = "\\| ") %>% 
+  mutate(genre = fct_lump(genres, 5),
+         genre = fct_reorder(genre, review_rating,
+                             na.rm = TRUE)) %>% 
+  ggplot(aes(genre, review_rating)) + 
+  geom_boxplot() +
+  coord_flip()
+
+```
+
+
+```{r}
+library(tidytext)
+
+# every token (= here set to a word) in plot gets his own row
+horror_movies_unnested <- horror_movies %>% 
+  unnest_tokens(word, plot) %>% 
+  # drops all observations in x that have a match in y
+  anti_join(stop_words,
+            by = "word") %>% 
+  filter(!is.na(word))
+
+
+horror_movies_unnested %>% 
+  filter(!is.na(review_rating)) %>% 
+  group_by(word) %>% 
+  summarize(movies = n(),
+            avg_rating = mean(review_rating)) %>% 
+  # words that appear in at least 100 movie plot descriptions
+  arrange(desc(movies)) %>% 
+  filter(movies >= 100) %>% 
+  mutate(word = fct_reorder(word, avg_rating)) %>% 
+  ggplot(aes(avg_rating, word)) + 
+  geom_point()
+```
+
+### Lasso regression for predicting review rating based in words
+
+```{r}
+library(glmnet)
+library(Matrix)
+
+movie_word_matrix <- horror_movies_unnested %>% 
+  filter(!is.na(review_rating)) %>% 
+  # we use only words, that appear at least 20 times
+  add_count(word) %>% 
+  filter(n >= 20) %>%
+  count(title, word) %>% 
+  cast_sparse(row = title, column = word, value = n)
+
+# 2945 movies, 460 words  
+dim(movie_word_matrix)
+```
+
+
+Which words in the plot predict a higher or lower rating?
+
+```{r}
+# "create" y-variable
+rating <- horror_movies$review_rating[match(rownames(movie_word_matrix), horror_movies$title)]
+
+# almost normally distributed
+qplot(rating)
+
+# cross validation glmnet
+lasso_model <- cv.glmnet(movie_word_matrix, rating)
+
+# broom-package
+library(broom)
+tidy(lasso_model$glmnet.fit) %>% 
+  View()
+
+# NOTE: we use over 450 predictors to predict the rating
+# it is very likely that we overfit the model
+# lambda is a penalty-term => "the smaller lambda the further away are the terms from 0"
+#                             (a high lambda sets predictors to 0's...)
+tidy(lasso_model$glmnet.fit) %>% 
+  filter(term %in% c("house", "friends", "life", "family", "horror", "evil", "mother")) %>% 
+  ggplot(aes(lambda, estimate, color = term)) + 
+  geom_line() + 
+  scale_x_log10() + 
+  geom_hline(yintercept = 0, lty = 2)
+# how to choose lambda?!
+```
+
+Choosing lambda
+
+```{r}
+# take a look at the Mean-Squared Error => gets very big => overfitting of the model!
+plot(lasso_model)
+
+lasso_model$lambda.min
+
+tidy(lasso_model$glmnet.fit) %>% 
+  filter(lambda == lasso_model$lambda.min,
+         term != "(Intercept)") %>% 
+  mutate(term = fct_reorder(term, estimate)) %>% 
+  ggplot(aes(term, estimate)) +
+  geom_col() +
+  coord_flip()
+```
+
+
+
+Model with director, cast, genre, rating, plot, words, language, release country
+
+```{r}
+features <- horror_movies %>% 
+  filter(!is.na(review_rating)) %>% 
+  select(title, genres, director, cast, movie_rating, language, release_country) %>% 
+  mutate(director = str_remove(director, "Directed by ")) %>% 
+  pivot_longer(cols = -title, names_to = "type", values_to = "value")  %>%
+  filter(!is.na(value)) %>% 
+  separate_rows(value, sep = "\\| ?") %>% 
+  unite(feature, type, value, sep = ": ") %>% 
+  mutate(n = 1)
+
+movie_feature_matrix <- horror_movies_unnested %>% 
+  filter(!is.na(review_rating)) %>% 
+  count(title, feature = paste0("word: ", word)) %>% 
+  bind_rows(features) %>% 
+  add_count(feature, name = "counter") %>% 
+  filter(counter >= 10) %>% 
+  cast_sparse(title, feature)
+
+
+# 3051 movies, 1142 predictors
+dim(movie_feature_matrix)
+
+```
+
+
+```{r}
+rating <- horror_movies$review_rating[match(rownames(movie_feature_matrix), horror_movies$title)]
+
+feature_lasso_model <- cv.glmnet(movie_feature_matrix, rating)
+```
+
+```{r}
+plot(feature_lasso_model)
+
+tidy(feature_lasso_model$glmnet.fit) %>% 
+  filter(lambda == feature_lasso_model$lambda.1se,
+         term != "(Intercept)") %>% 
+  separate(term, "type", sep = ":", remove = FALSE) %>%
+  mutate(type = str_to_title(type),
+         type = str_replace_all(type, "_", " "),
+         term = str_replace_all(term, "^[^:]+", ""),
+         term = str_replace_all(term, ": ", ""),
+         term = str_to_title(term),
+         term = fct_reorder(term, estimate)) %>% 
+  ggplot(aes(term, estimate, fill = type)) + 
+  geom_col() +
+  coord_flip() +
+  labs(x = "",
+       y = "Coefficient for predicting horror movie rating",
+       fill = "Type",
+       title = "What affects a horror movie rating?",
+       subtitle = "Based on a lasso regression to predict IMDb ratings of ~3000 movies")
+
+```
+
