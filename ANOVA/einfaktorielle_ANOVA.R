@@ -1,12 +1,105 @@
-# source: https://www.youtube.com/watch?v=GctGncQrJew
+# Quelle: https://www.youtube.com/watch?v=GctGncQrJew
 
 
-# generate data set
+# Pakete laden ------------------------------------------------------------
 
+library(tidyverse)
+
+
+
+# Datengenerierung --------------------------------------------------------
 
 df <- dplyr::tibble(
-  Ruhepuls = c(95, 91, 65, 77, 98, 105, 100, 110, 115, 98, 115, 115, 120,
-               100, 115, 115, 98, 120, 80, 100, 120, 125, 135, 145, 130, 120,
-               95, 91, 98, 77, 98, 105, 110, 80, 75, 80, 65, 75, 86),
+  Puls = c(45, 60, 65, 57, 44, 35, 45, 85, 58, 68, 72, 75, 60,
+           100, 125, 145, 110, 120, 115, 100, 120, 125, 135, 145, 130, 120,
+           100, 110, 100, 95, 98, 125, 120, 118, 95, 100, 119, 125, 140),
   Trainingsgruppe = c(rep(0, 13), rep(1, 13), rep(2, 13))
 )
+
+
+
+# Voraussetzungen ANOVA ---------------------------------------------------
+
+# 1) Intervallskalierte abhängige Variable (Ruhepuls)
+
+# 2) Normalverteilung der Residuen 
+#    Alternativ: normalverteilte abhängige Variable je Gruppe
+
+# 3) Varianzhomogenität zwischen den Gruppen
+
+
+
+
+# Vorausssetzungen prüfen -------------------------------------------------
+
+### Varianzhomogenität 
+
+# deskripitve Analyse
+
+psych::describeBy(x = df$Puls, group = df$Trainingsgruppe)
+
+# ist hier auf den ersten Blick gegeben  vgl. sd = Wurzel der Varianz (genauerer Test Levene-Test)
+
+
+
+
+# Durchführung der ANOVA --------------------------------------------------
+
+ANOVA_Training <- aov(formula = Puls ~ Trainingsgruppe, data = df)
+
+summary(ANOVA_Training)
+
+# signifikanter F-Test (F value: 33.64 Pr(>F): 1.17e-06 => Wahrscheinlichkeit, dass solch ein grosser F-Wert empirisch vorkommt,
+# beträgt 1.17e-04%)
+# Signifikante Unterschiede zwischen den Gruppen!
+# ABER wir können noch nicht sagen zwischen welchen Gruppen!
+
+
+
+
+# Post-hoc-Test (paarweise Vergleichstests!) ------------------------------
+
+# Problem: Alpha-Fehler-Kumulierung => wir können nicht einfach so mehrere t-Tests an der gleichen Stichprobe durchführen
+# bei n Tests und einem Alpha-Niveau von 5% steigt der Alpha-Fehler auf 1 - (0.95)^n
+# vgl. 3 t-Tests: 1 - (0.95)^3 = 1-0.857 = 0.143 => die Wahrscheinlichkeit für den Alpha-Fehler steigt auf 14.3%!
+# Alpha-Fehler-Korrektur mittels paarweisen t-Tests!
+
+pairwise.t.test(df$Puls, df$Trainingsgruppe, p.adjust.method = "bonferroni")
+
+# Signifikanzmatrix
+# Gruppe 0 und 1 sind signifikant verschieden (p-value: 7.3e-13)
+# Gruppe 0 und 2 sind signifikant verschieden (p-vlaue: 1.4e-10)
+# Gruppe 1 und 2 sind nicht (!) signifikant verschieden (p-value: 0.16)
+
+# P value adjustment! => um den Alpha-Kumulierungs-Fehler zu korrigieren kann man entweder direkt das Alpha anpassen,
+# oder den P-Wert! => hier wird der P-Wert angepasst (bonferroni als konservativste Variante...).
+
+
+
+
+# Voraussetzungen prüfen 2.0 ----------------------------------------------
+
+# Normalverteilung der Residuen
+
+# modelr + ggplot2
+df <- df %>% 
+  modelr::add_residuals(ANOVA_Training) %>% 
+  modelr::add_predictions(ANOVA_Training) %>% 
+  mutate(resid_std = (resid - mean(resid)) / sd(resid))
+
+df %>% 
+  ggplot(aes(resid_std)) + 
+  geom_histogram(bins = 8)
+
+# modelr + base R
+hist(df$resid_std)
+
+# base R
+hist(rstandard(ANOVA_Training))
+
+
+# Zusatz (Q-Q-Plot)
+plot(ANOVA_Training, 2)
+# für eine perfkete Normalverteilung müssten alle standardisierten Residuen auf der Geraden sein...
+# ist hier nicht ganz erfüllt, aber OK (Normalverteilung muss nicht perfekt sein...)
+
