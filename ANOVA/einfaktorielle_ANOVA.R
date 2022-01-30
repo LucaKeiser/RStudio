@@ -9,6 +9,10 @@ library(tidyverse)
 
 # Datengenerierung --------------------------------------------------------
 
+# Wieso macht es einen Unterschied, ob die Daten der unabhängigen Variablen
+# als Faktoren eingelesen werden oder nicht? (Vgl. Resultate der ANOVA
+# unterscheiden sich...)
+
 df <- dplyr::tibble(
   Puls = c(45, 60, 65, 57, 44, 35, 45, 85, 58, 68, 72, 75, 60,
            100, 125, 145, 110, 120, 115, 100, 120, 125, 135, 145, 130, 120,
