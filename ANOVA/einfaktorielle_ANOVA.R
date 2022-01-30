@@ -34,13 +34,22 @@ df <- dplyr::tibble(
 
 ### Varianzhomogenität 
 
-# deskripitve Analyse
-
+# 1) deskripitve Analyse
 psych::describeBy(x = df$Puls, group = df$Trainingsgruppe)
-
 # ist hier auf den ersten Blick gegeben  vgl. sd = Wurzel der Varianz (genauerer Test Levene-Test)
 
 
+# 2) Zusatz Levene-Test 
+# prüft, ob die Varianz bei 2 oder mehr Gruppen gleich ist (Voraussetzung für t-Test oder ANOVA)
+# H0: Varianzgleichheit
+
+car::leveneTest(y = df$Puls, group = df$Trainingsgruppe)
+
+# Levene-Test ist nicht sigifikant (F-Wert: 0.1274, Pr(>F): 0.8807)
+# H0 kann nicht verworfen werden!
+# => Varianzhomogenität ist gegeben!
+# Der Levene-Test wird in der Regel mit dem Median durchgeführt, da dieser
+# robuster ist als der Mittelwert...
 
 
 # Durchführung der ANOVA --------------------------------------------------
@@ -53,7 +62,6 @@ summary(ANOVA_Training)
 # beträgt 1.17e-04%)
 # Signifikante Unterschiede zwischen den Gruppen!
 # ABER wir können noch nicht sagen zwischen welchen Gruppen!
-
 
 
 
@@ -73,7 +81,6 @@ pairwise.t.test(df$Puls, df$Trainingsgruppe, p.adjust.method = "bonferroni")
 
 # P value adjustment! => um den Alpha-Kumulierungs-Fehler zu korrigieren kann man entweder direkt das Alpha anpassen,
 # oder den P-Wert! => hier wird der P-Wert angepasst (bonferroni als konservativste Variante...).
-
 
 
 
