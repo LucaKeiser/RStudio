@@ -24,17 +24,21 @@ df <- dplyr::tibble(
 
 # Voraussetzungen ANOVA ---------------------------------------------------
 
-# 1) Intervallskalierte abhängige Variable (Ruhepuls)
+# 1) Intervallskalierte abhängige Variable
 
-# 2) Normalverteilung der Residuen 
+# 2) Varianzhomogenität zwischen den Gruppen
+
+# 3) Normalverteilung der Residuen 
 #    Alternativ: normalverteilte abhängige Variable je Gruppe
-
-# 3) Varianzhomogenität zwischen den Gruppen
-
 
 
 
 # Vorausssetzungen prüfen -------------------------------------------------
+
+### Intervallskalierung
+
+# abhängige Variable = Ruhepuls
+
 
 ### Varianzhomogenität 
 
@@ -50,10 +54,11 @@ psych::describeBy(x = df$Puls, group = df$Trainingsgruppe)
 car::leveneTest(y = df$Puls, group = df$Trainingsgruppe)
 
 # Levene-Test ist nicht sigifikant (F-Wert: 0.1274, Pr(>F): 0.8807)
-# H0 kann nicht verworfen werden!
+# H0 kann nicht (!) verworfen werden!
 # => Varianzhomogenität ist gegeben!
 # Der Levene-Test wird in der Regel mit dem Median durchgeführt, da dieser
 # robuster ist als der Mittelwert...
+
 
 
 # Durchführung der ANOVA --------------------------------------------------
@@ -109,7 +114,7 @@ hist(df$resid_std)
 hist(rstandard(ANOVA_Training))
 
 
-# Zusatz (Q-Q-Plot)
+# Zusatz: Q-Q-Plot für die Residuen
 plot(ANOVA_Training, 2)
 # für eine perfkete Normalverteilung müssten alle standardisierten Residuen auf der Geraden sein...
 # ist hier nicht ganz erfüllt, aber OK (Normalverteilung muss nicht perfekt sein...)
