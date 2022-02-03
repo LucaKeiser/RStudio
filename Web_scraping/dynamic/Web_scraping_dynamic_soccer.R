@@ -6,7 +6,8 @@ library(RSelenium)
 library(polite)
 library(glue)
 library(lubridate)
-
+library(ggiraph)
+library(plotly)
 
 
 # check if it is okay to scrape first -------------------------------------
@@ -232,8 +233,7 @@ df_clean %>%
 
 # plot 3 $-Amount Development per Type and Player mentioned >= 10 times
 
-library(ggiraph)
-
+# 3,1 ggiraph
 df_clean$tooltip_1 <- c(paste0(df_clean$player, "\n", df_clean$full_team, "\n", df_clean$position, "\n", df_clean$amount_dollar))
 
 gg_obj_1 <- df_clean %>% 
@@ -249,7 +249,7 @@ gg_obj_1 <- df_clean %>%
   geom_point_interactive(aes(tooltip = tooltip_1, color = player)) +
   scale_y_continuous(labels = scales::dollar_format(),
                      breaks = seq(0, 155000000, by = 25000000)) +
-  scale_x_continuous(breaks = seq(2011, 2021, by = 2)) +
+  scale_x_continuous(breaks = seq(2011, 2021, by = 3)) +
   labs(title = "English Premier League (2011 - 2021)",
        subtitle = "$-Amount Development per Type and Player mentioned >= 10 times",
        x = "Year",
@@ -257,47 +257,40 @@ gg_obj_1 <- df_clean %>%
   facet_wrap(~ title)
 
 
-girafe(code = print(gg_obj_1))
+girafe(code = print(gg_obj_1),
+       height = 3.5,
+       width = 7)
 
 
-# plot 4
 
-df_clean %>%
-  filter(title == "Annual Salary",
-         amount_dollar >= 10000000) %>% 
+
+
+# 3.2 plotly
+
+gg_obj_2 <- df_clean %>% 
+  filter(title != "Contract Transfer Fee") %>% 
+  group_by(title, player) %>% 
   add_count(player) %>% 
-  filter(n >= 5) %>% 
+  filter(n >= 10) %>% 
+  ungroup() %>% 
+  mutate(player = fct_reorder(player, amount_dollar, max, .desc = TRUE)) %>% 
   ggplot(aes(x = year_from, y = amount_dollar)) + 
-  geom_line(color = "red",
-            size = 1) + 
-  geom_point(aes(shape = team)) + 
+  geom_line(aes(color = player)) +
+  # use the text argument to specify the labels!
+  # tooltip_1 can be reused in this case!
+  geom_point(aes(color = player, text = tooltip_1)) +
   scale_y_continuous(labels = scales::dollar_format(),
-                     limits = c(0, 25000000)) +
-  labs(title = "English Premier League (2011 - 2022)",
-       subtitle = "Annual Salary per Player\nEarning more than 10'000'000$ and mentioned >= 5 times",
+                     breaks = seq(0, 155000000, by = 25000000)) +
+  scale_x_continuous(breaks = seq(2011, 2021, by = 3)) +
+  labs(title = "English Premier League (2011 - 2021)",
+       subtitle = "$-Amount Development per Type and Player mentioned >= 10 times",
        x = "Year",
-       y = "") +
-  facet_wrap(~ player)
+       y = "",
+       color = "") +
+  facet_wrap(~ title)
+  
 
+ggplotly(gg_obj_2,
+         tooltip = "text")
 
-# plot 5
-df_clean %>%
-  filter(title == "Contract Value") %>% 
-  group_by(player) %>% 
-  filter(amount_dollar >= 50000000) %>% 
-  add_count(player) %>% 
-  View()
-  filter(n >= 7) %>% 
-  mutate(player = fct_reorder(player, amount_dollar, max)) %>%  
-  ggplot(aes(x = year_from, y = amount_dollar)) + 
-  geom_line(color = "red",
-            size = 1) + 
-  geom_point() + 
-  scale_y_continuous(labels = scales::dollar_format(),
-                     limits = c(0, 160000000)) +
-  labs(title = "English Premier League (2011 - 2022)",
-       subtitle = "Contrac Value per Player\nEarning more than 10'000'000$ and mentioned >= 8 times",
-       x = "Year",
-       y = "") +
-  facet_wrap(~ player)
   
