@@ -295,5 +295,5 @@ gg_obj_2 <- df_clean %>%
   
 
 # Note: subtitle gets lost. Subtitle fix does not look pretty... 
-p <- ggplotly(gg_obj_2,
+ggplotly(gg_obj_2,
          tooltip = "text")
