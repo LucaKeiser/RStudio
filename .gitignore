@@ -1,7 +1,9 @@
+*.pdf
 *.sav
 *.csv
 *.rds
 *.txt
+*.rds
 *.Rproj
 *.Rproj.user
 *.Rproj.user

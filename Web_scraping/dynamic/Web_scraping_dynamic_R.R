@@ -9,11 +9,11 @@ library(polite)
 
 # start a server ----------------------------------------------------------
 
-rD <- rsDriver(browser="firefox")
+remote_server <- rsDriver(browser="firefox")
 
 # separate the client and server as different objects
-browser <- rD$client
-server <- rD$server
+browser <- remote_server$client
+server <- remote_server$server
 
 
 
