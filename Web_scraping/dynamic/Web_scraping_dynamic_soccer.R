@@ -233,9 +233,11 @@ df_clean %>%
 
 # plot 3 $-Amount Development per Type and Player mentioned >= 10 times
 
-# 3,1 ggiraph
+# create labels (tooltips)
 df_clean$tooltip_1 <- c(paste0(df_clean$player, "\n", df_clean$full_team, "\n", df_clean$position, "\n", df_clean$amount_dollar))
 
+
+# 3,1 ggiraph
 gg_obj_1 <- df_clean %>% 
   # filtered (to less data...)
   filter(title != "Contract Transfer Fee") %>% 
@@ -250,6 +252,7 @@ gg_obj_1 <- df_clean %>%
   scale_y_continuous(labels = scales::dollar_format(),
                      breaks = seq(0, 155000000, by = 25000000)) +
   scale_x_continuous(breaks = seq(2011, 2021, by = 3)) +
+  theme(legend.position = "none") + 
   labs(title = "English Premier League (2011 - 2021)",
        subtitle = "$-Amount Development per Type and Player mentioned >= 10 times",
        x = "Year",
@@ -282,6 +285,7 @@ gg_obj_2 <- df_clean %>%
   scale_y_continuous(labels = scales::dollar_format(),
                      breaks = seq(0, 155000000, by = 25000000)) +
   scale_x_continuous(breaks = seq(2011, 2021, by = 3)) +
+  theme(legend.position = "none") +
   labs(title = "English Premier League (2011 - 2021)",
        subtitle = "$-Amount Development per Type and Player mentioned >= 10 times",
        x = "Year",
@@ -290,7 +294,6 @@ gg_obj_2 <- df_clean %>%
   facet_wrap(~ title)
   
 
-ggplotly(gg_obj_2,
+# Note: subtitle gets lost. Subtitle fix does not look pretty... 
+p <- ggplotly(gg_obj_2,
          tooltip = "text")
-
-  
