@@ -1,6 +1,6 @@
-# Intro - Tidyverse
-# A brief overview
-# package
+# Intro - Tidyverse - A brief overview
+
+# load package
 library(tidyverse)
 
 
