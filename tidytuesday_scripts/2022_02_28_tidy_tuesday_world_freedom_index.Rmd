@@ -13,6 +13,7 @@ library(tidyverse)
 library(tidytuesdayR)
 library(scales)
 library(glue)
+library(countrycode)
 
 theme_set(theme_light())
 ```
@@ -24,7 +25,9 @@ Download the data
 freedom <- tt_load("2022-02-22")$freedom %>% 
   janitor::clean_names() %>% 
   rename(civil_liberties = cl,
-         political_rights = pr)
+         political_rights = pr) %>% 
+  # fix with the countrycode-package!
+  mutate(country_code = countrycode(country, "country.name", "iso2c"))
 
 freedom
 
@@ -129,17 +132,27 @@ freedom %>%
 Over time
 
 ```{r}
-freedom %>% 
+freedom_long <- freedom %>% 
   pivot_longer(cols = c(civil_liberties, political_rights),
                names_to  = "metric",
                values_to = "value") %>% 
   mutate(metric = str_to_title(str_replace_all(metric, "_", " ")),
-         region_name = fct_reorder(region_name, value)) %>% 
+         region_name = fct_reorder(region_name, value))
+
+
+# create second data set for the overall trend!
+overall <- freedom_long %>% 
+  group_by(year, metric) %>% 
+  summarise(avg_rating = mean(value))
+
+freedom_long %>% 
   group_by(year, region_name, metric) %>% 
   summarise(avg_rating = mean(value)) %>% 
-  ggplot(aes(year, avg_rating, 
-             color = region_name)) +
-  geom_line() +
+  ggplot(aes(year, avg_rating)) +
+  geom_line(aes(color = region_name)) +
+  geom_line(data = overall,
+            aes(year, avg_rating),
+            size = 2) + 
   facet_wrap(~ metric) + 
   
   # more intuive to understand!
@@ -150,11 +163,42 @@ freedom %>%
   #scale_color_discrete(guide = guide_legend(reverse = TRUE)) +
   
   labs(title = "Word Freedom Index Rating over Time",
+       subtitle = "Overall trend is represented in black",
        x = "Year",
        y = "Word Freedom Index Rating",
        color = "Region")
+
+# other trick video (24:00)
+#freedom_long %>% 
+#  mutate(region_name = "Overall") %>% 
+#  bind_rows(freedom_long) %>% 
+
 ```
 
+
+
+
+
+World bank data
+
+```{r}
+library(WDI)
+gdp_percap <- WDI(indicator = "NY.GDP.PCAP.CD",
+                  extra = TRUE,
+                  start = 1995,
+                  end = 2020) %>% 
+  as_tibble()
+```
+
+Merge with the freedom data
+```{r}
+freedome_joined <- freedom %>% 
+  inner_join(gdp_percap,
+             by = c(country_code = "iso2c", "year"),
+             suffix = c("", "_wdi"))
+
+# 34:19
+```
 
 
 
