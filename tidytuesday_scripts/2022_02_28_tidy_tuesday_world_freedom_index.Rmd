@@ -11,9 +11,12 @@ editor_options:
 ```{r}
 library(tidyverse)
 library(tidytuesdayR)
+library(ggrepel)
 library(scales)
+library(broom)
 library(glue)
 library(countrycode)
+
 
 theme_set(theme_light())
 ```
@@ -59,16 +62,29 @@ freedom %>%
 
 Look just at 2020
 
+```{r}
+# create function
+
+summarise_freedom <- function(tbl) {
+  tbl %>% 
+    summarize(n_countries = n(),
+              avg_civil_liberties = mean(civil_liberties),
+              avg_political_rights = mean(political_rights),
+              pct_free = mean(status == "F"),
+              .groups = "drop") %>% 
+    arrange(desc(n_countries))
+}
+```
+
+
 Correlation between region and freedom indices
 
 ```{r}
 by_region <- freedom %>% 
   filter(year == 2020) %>% 
   group_by(region_name) %>% 
-  summarise(n_countries = n(),
-            avg_civil_liberties = mean(civil_liberties),
-            avg_political_rights = mean(political_rights),
-            pct_free = mean(status == "F")) 
+  summarise_freedom()
+
 
 by_region %>% 
   ggplot(aes(avg_civil_liberties, avg_political_rights)) + 
@@ -192,13 +208,196 @@ gdp_percap <- WDI(indicator = "NY.GDP.PCAP.CD",
 
 Merge with the freedom data
 ```{r}
-freedome_joined <- freedom %>% 
+freedom_joined <- freedom %>% 
   inner_join(gdp_percap,
              by = c(country_code = "iso2c", "year"),
              suffix = c("", "_wdi"))
 
-# 34:19
+# 2020
+freedom_joined %>% 
+  filter(year == 2020,
+         income != "Not classified") %>% 
+  mutate(income = fct_relevel(income,
+                              c("Low income", "Lower middle income", "Upper middle income", "High income"))) %>% 
+  group_by(income) %>% 
+  summarise_freedom() %>% 
+  arrange(income)
+
+
+# by year
+freedom_joined <- freedom_long %>% 
+  inner_join(gdp_percap, by = c(country_code = "iso2c", "year"),
+             suffix = c("", "_wdi")) %>% 
+  mutate(income = fct_relevel(income,
+                              c("Low income", "Lower middle income", "Upper middle income", "High income")))
+
+freedom_joined %>% 
+  filter(income != "Not classified") %>% 
+  group_by(metric, income, year) %>% 
+  summarise(avg_rating = mean(value)) %>% 
+  ggplot(aes(year, avg_rating)) +
+  geom_line(aes(color = income)) + 
+  geom_line(data = overall,
+            aes(year, avg_rating),
+            size = 2) +
+  scale_y_reverse(breaks = seq(1, 5, 1)) +
+  expand_limits(y = 1) + 
+  facet_wrap(~ metric) + 
+  labs(title = "World Freedom Index Rating over Time",
+       subtitle = "Overall trend is represented in black",
+       x = "Year",
+       y = "World Freedom Index Rating")
+
 ```
 
 
+Run a regression
+Replication problem with time series data
+=> just look at one year...
+=> if we would just take into the model, we would be to confident with our predictions
+=> one would have to run a propre times series regression
+```{r}
+# freedom regions
+civil_liberties_2020 <- freedom_joined %>% 
+  filter(metric == "Civil Liberties",
+         year == 2020,
+         !is.na(NY.GDP.PCAP.CD))
+
+
+lin_mod <- civil_liberties_2020 %>% 
+  # Europe = base line
+  lm(value ~ region_name + log2(NY.GDP.PCAP.CD), data = .)
+
+summary(lin_mod)
+
+# WDI regions
+lin_mod_2 <- civil_liberties_2020 %>% 
+  lm(value ~ region + log2(NY.GDP.PCAP.CD), data = .)
+
+summary(lin_mod_2)  
+```
+
+
+What countries in each group are the greatest outliers compared to the avg trend?
+Where did our model fail to predict the actual value?
+```{r}
+lin_mod %>% 
+  augment(data = civil_liberties_2020) %>% 
+  select(country, region_name, NY.GDP.PCAP.CD, income, value, .fitted, .resid) %>% 
+  arrange(desc(abs(.resid)))
+
+# plot
+lin_mod %>% 
+  augment(data = civil_liberties_2020) %>% 
+  select(country, region_name, NY.GDP.PCAP.CD, income, value, "fitted" = .fitted, "residuals" = .resid) %>% 
+  arrange(desc(abs(residuals))) %>% 
+  head(20) %>% 
+  ggplot(aes(fitted, value)) +
+  geom_point() +
+  geom_abline(color = "red") +
+  scale_x_continuous(breaks = seq(1, 7, 1)) + 
+  scale_y_continuous(breaks = seq(1, 7, 1)) +
+  expand_limits(x = 1, 
+                y = 1) +
+  geom_text_repel(aes(label = country)) +
+  labs(title = "What are the largest outliers?",
+       x = "Fitted Value based on Region and Income",
+       y = "Actual Freedom Index")
+```
+
+
+Create a map for 2020
+```{r}
+library(maps)
+library(fuzzyjoin)
+
+world <- map_data("world") %>% 
+  as_tibble()
+
+freedom_2020 <- freedom_joined %>% 
+  filter(year == 2020)
+
+world_map_freedom_2020 <- world %>% 
+  regex_left_join(maps::iso3166, c(region = "mapname")) %>% 
+  left_join(freedom_2020 %>% select(-region), 
+            by = c(a2 = "country_code")) %>% 
+  filter(region != "Antarctica")
+
+
+world_map_freedom_2020 %>% 
+  filter(metric == "Civil Liberties") %>% 
+  ggplot(aes(long, lat, group = group)) + 
+  geom_polygon(aes(fill = value)) + 
+  
+  # coord_map fix!
+  coord_map(xlim = c(-180, 180)) + 
+  
+  scale_fill_gradient2(low = "blue",
+                       midpoint = 3.5,
+                       high = "red",
+                       guide = guide_legend(reverse = TRUE)) +
+  ggthemes::theme_map() + 
+  labs(title = "World Freedom Index: Civil Liberties by Country",
+       subtitle = "In 2020",
+       fill = "Civil Liberties")
+```
+
+
+create animated map with gganimate
+```{r}
+library(gganimate)
+
+world_map_freedom <- world %>% 
+  regex_left_join(maps::iso3166, c(region = "mapname")) %>% 
+  left_join(freedom_joined %>% select(-region),
+            by = c(a2 = "country_code")) %>% 
+  filter(region != "Antartica")
+
+
+world_map_freedom %>% 
+  filter(metric == "Civil Liberties") %>% 
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = value)) + 
+  coord_fixed(1.25) + 
+  scale_fill_gradient2(low = "blue",
+                       midpoint = 3.5,
+                       high = "red",
+                       guide = guide_legend(reverse = TRUE)) + 
+  ggthemes::theme_map() +
+  transition_manual(year) + 
+  labs(title  = "World Freedom Index: Civil Liberties by Country",
+       subtitle = "In { current_frame }",
+       fill = "Civil Liberties")
+
+```
+
+
+Write a function
+```{r}
+
+detach("package:gganimate")
+
+for (i in 1995:2020) {
+  plot <- world_map_freedom %>% 
+  filter(metric == "Civil Liberties",
+         year == i) %>% 
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = value)) + 
+  coord_fixed(1.25) + 
+  scale_fill_gradient2(low = "blue",
+                       midpoint = 3.5,
+                       high = "red",
+                       guide = guide_legend(reverse = TRUE)) + 
+  ggthemes::theme_map() +
+  labs(title  = "World Freedom Index: Civil Liberties by Country",
+       subtitle = glue("In {i}"),
+       fill = "Civil Liberties")
+  
+  # store as separate plot
+  assign(paste("freedom_plot", i, sep = "_"), plot)
+  
+  # remve plot
+  rm(plot)
+}
+```
 
