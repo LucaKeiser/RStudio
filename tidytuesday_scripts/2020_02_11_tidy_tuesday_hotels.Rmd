@@ -38,7 +38,6 @@ head(hotel_stays)
 
 ```{r}
 # take a look with skimr
-
 library(skimr)
 skim(hotel_stays)
 ```
