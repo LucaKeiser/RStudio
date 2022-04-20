@@ -40,6 +40,9 @@ etc.
 David Robinson
 => check out: https://www.youtube.com/user/safe4democracy
 
+Julia Silge
+=> check out:  https://www.youtube.com/c/JuliaSilge
+
 
 **5) xgboost Tutorial 1**
 
