@@ -3,28 +3,338 @@ title: "Predictive modeling - NFL attendance"
 author: "Luca"
 date: "20/04/2022"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+## Load packages
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(scales)
+library(lubridate)
+library(glue)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Exlopre data
 
-```{r cars}
-summary(cars)
+```{r}
+# get data
+
+attendance <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-04/attendance.csv")
+standings <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-04/standings.csv")
+
+
+glimpse(attendance)
+glimpse(standings)
+
+attendance %>% readr::spec()
+standings %>% readr::spec()
+
+
+
+# take a look attendance
+for(var in names(attendance)) {
+    
+    attendance %>% 
+    count(.data[[var]],
+          sort = TRUE) %>% 
+    print()
+}
+
+# absolut
+map(attendance, ~sum(is.na(.)))
+# percent
+map(attendance, ~mean(is.na(.)) * 100)
+
+
+# same for standings
+for(var in names(standings)) {
+  
+  standings %>% 
+    count(.data[[var]],
+          sort = TRUE) %>% 
+    print()
+}
+
+# absolut
+map(standings, ~sum(is.na(.)))
+# percent
+map(standings, ~mean(is.na(.)) * 100)
+
+
+# join the data
+NFL <- attendance %>% 
+  left_join(standings,
+            by = c("year", "team_name", "team"))
+
+NFL
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+## EDA
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# take a closer look at the dependent variable
+NFL %>% 
+  na.omit() %>% 
+  mutate(team_name = fct_reorder(team_name, weekly_attendance)) %>% 
+  ggplot(aes(team_name, weekly_attendance,
+             fill = playoffs)) + 
+  geom_boxplot(outlier.alpha = 0.25)  +
+  scale_x_continuous(labels = number_format()) + 
+  scale_y_continuous(labels = number_format())  +
+  coord_flip() + 
+  labs(title = "\nWeekly NFL Attendance\n",
+       x = "Team Name\n",
+       y = "\nWeekly Attendance",
+       fill = "") + 
+  theme_light()
+
+# How much does margin_of_victory, a measure of points scored relative to points allowed, measure the same thing as getting to the playoffs?
+NFL %>% 
+  distinct(team_name,
+           year, 
+           margin_of_victory,
+           playoffs) %>% 
+  ggplot(aes(margin_of_victory,
+             fill = playoffs)) +
+  geom_histogram(bins = 25,
+                 position = "identity",
+                 alpha = 0.75) + 
+  labs(x = "\nMargin of vicotry",
+       y = "Number of teams\n") + 
+  theme_light()
+
+
+# are there changes regarding the week of the season?
+NFL %>% 
+  mutate(week = as_factor(week)) %>% 
+  ggplot(aes(weekly_attendance, week)) +
+  geom_boxplot(aes(fill = week),
+               outlier.alpha = 0.25,
+               show.legend = FALSE)  +
+  scale_x_continuous(labels = number_format()) + 
+  scale_y_continuous(labels = number_format()) + 
+  labs(x = "Weekly Attendance\n",
+       y = "\nWeek") +
+  coord_flip() +
+  theme_light()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Build a model
+
+Build a model to predcit weekly attendance!
+
+```{r}
+# filter out NAs
+NFL_filtered <- NFL %>% 
+  na.omit() %>% 
+  select( weekly_attendance, team_name, year, week,
+          margin_of_victory, strength_of_schedule, playoffs)
+
+# split the data set to create training and testing set!
+set.seed(1234)
+
+NFL_split <- NFL_filtered %>% 
+  initial_split(strata = playoffs)
+
+
+nfl_train <- training(NFL_split)
+nfl_train
+
+nfl_test <- testing(NFL_split)
+nfl_test
+```
+
+
+#### OLS
+
+```{r}
+# fit a linear model first (simple OLS)
+lm_spec <- linear_reg() %>% 
+  set_engine(engine = "lm")
+
+lm_spec
+
+lm_fit <- lm_spec %>% 
+  fit(weekly_attendance ~ .,
+      # TRAINING SET
+      data = nfl_train)
+
+lm_fit %>% 
+  tidy() %>% 
+  arrange(desc(estimate))
+```
+
+
+
+#### RF
+
+```{r}
+rf_spec <- rand_forest(mode = "regression") %>% 
+  set_engine(engine = "ranger")
+
+rf_spec
+
+rf_fit <- rf_spec %>% 
+  fit(weekly_attendance ~ .,
+      # TRAINING SET
+      data = nfl_train)
+
+
+rf_fit
+```
+
+
+## Evaluate Models
+
+```{r}
+# predict training and collect metrics
+results_train <- lm_fit %>% 
+  predict(new_data = nfl_train) %>% 
+  mutate(true_value = nfl_train$weekly_attendance,
+         model = "lm") %>% 
+  bind_rows(rf_fit %>% 
+              predict(nfl_train) %>% 
+              mutate(true_value = nfl_train$weekly_attendance,
+                     model = "rf"))
+
+results_train
+
+# predict testing and collect metrics
+results_test <- lm_fit %>% 
+  predict(new_data = nfl_test) %>% 
+  mutate(true_value = nfl_test$weekly_attendance,
+         model = "lm") %>% 
+  bind_rows(rf_fit %>% 
+              predict(nfl_test) %>% 
+              mutate(true_value = nfl_test$weekly_attendance,
+                     model = "rf"))
+
+results_test
+
+
+# we look at the root mean squared error (rmse)
+results_train %>% 
+  group_by(model) %>% 
+  rmse(truth = true_value,
+       estimate = .pred)
+
+results_test %>% 
+  group_by(model) %>% 
+  rmse(truth = true_value,
+       estimate = .pred)
+
+# large difference between the rmse of the testing and training model for the rf! => sign of overfitting!
+```
+
+If we look at the training data, the random forest model performed much better than the linear model; the rmse is much lower. However, the same cannot be said for the testing data! The metric for training and testing for the linear model is about the same, meaning that we have not overfit. For the random forest model, the rmse is higher for the testing data than for the training data, by quite a lot. Our training data is not giving us a good idea of how our model is going to perform, and this powerful ML algorithm has overfit to this dataset.
+
+
+```{r}
+results_test %>% 
+  mutate(type = "testing") %>% 
+  bind_rows(results_train %>% 
+    mutate(type = "training")) %>% 
+  ggplot(aes(true_value, .pred, 
+             color = model)) + 
+  geom_point(alpha = 0.25) + 
+  geom_abline(lty = 2) +
+  scale_x_continuous(labels = number_format()) +
+  scale_y_continuous(labels = number_format()) + 
+  facet_wrap(~ type) + 
+  labs(x = "\nTrue Value",
+       y = "Estimated Value\n",
+       color = "Type of model") + 
+  theme_light()
+```
+
+
+## Try again!
+
+We made not such a great decision in the previous section; we expected the random forest model evaluated one time on the whole training set to help us understand something about how it would perform on new data. This would be a reasonable expectation for the linear model, but not for the random forest. Fortunately, we have some options. We can resample the training set to produce an estimate of how the model will perform. Let’s divide our training set nfl_train into folds (say, 10) and fit 10 versions of our model (each one trained on nine folds and evaluated on one heldout fold). Then let’s measure how well our model(s) performs. The function vfold_cv() creates folds for cross-validation, the function fit_resamples() fits models to resamples such as these (to measure performance), and then we can collect_metrics() from the result.
+
+```{r}
+set.seed(1234)
+nfl_folds <- vfold_cv(nfl_train,
+                      strata = playoffs)
+
+nfl_folds
+
+rf_res <- fit_resamples(rf_spec,
+                        weekly_attendance ~ .,
+                        nfl_folds,
+                        control = control_resamples(save_pred = TRUE))
+
+rf_res %>% 
+  collect_metrics()
+
+
+# let's take a look
+rf_res %>% 
+  unnest(.predictions) %>% 
+  ggplot(aes(weekly_attendance, .pred, 
+             color = id)) + 
+  geom_point(alpha = 0.25) +
+  geom_abline() + 
+  scale_x_continuous(labels = number_format()) + 
+  scale_y_continuous(labels = number_format()) + 
+  labs(x = "\nTrue Value",
+       y = "Estimated Value\n",
+       color = "") + 
+  theme_light()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
