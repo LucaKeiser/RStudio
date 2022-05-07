@@ -1,0 +1,199 @@
+---
+title: "Beer Production - Bootstrap Resampling"
+author: "Luca"
+date: '2022-05-07'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load packages and get the data
+
+### Data Dictionary
+
+variable                    class               description
+
+data_type                 	character 	        Pounds of Material - this is a sub-table from beer_taxed
+material_type             	character         	Grain product, Totals, Non-Grain Product (basically hops vs grains)
+year 	                      double 	            Year
+month                     	integer            	Month
+type                        character         	Actual line-item from material type
+month_current             	double 	            Current number of barrels for this year/month
+month_prior_year          	double 	            Prior year number of barrels for same month
+ytd_current               	double            	Cumulative year to date of current year
+ytd_prior_year            	double 	            Cumulative year to date for prior year
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+knitr::opts_chunk$set(warning = FALSE,
+                      message = FALSE,
+                      echo  = TRUE,
+                      dpi = 100,
+                      fig.width = 8,
+                      fig.height = 5)
+
+theme_set(theme_light())
+
+brewing_materials_raw <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-31/brewing_materials.csv")
+
+```
+
+A bit of EDA
+
+```{r}
+brewing_materials_raw
+
+# do some counting
+for(var in names(brewing_materials_raw)) {
+  
+  print(
+    brewing_materials_raw %>% 
+      count(.data[[var]], sort = TRUE)
+  )
+  
+}
+
+
+# what is used the most?
+brewing_materials_raw %>% 
+  count(type, wt = month_current, sort = TRUE)
+```
+
+
+
+```{r}
+brewing_filtered <- brewing_materials_raw %>%
+  filter(type %in% c("Malt and malt products",
+                     "Sugar and syrups",
+                     "Hops (dry)")) %>% 
+  filter(year < 2016,
+         month != 12) %>% 
+  mutate(date = str_c(year, "-", month, "-01"),
+         date = lubridate::ymd(date))
+
+
+brewing_filtered %>% 
+  ggplot(aes(date, month_current, color = type))  +
+  geom_point()
+```
+
+
+```{r}
+brewing_materials <- brewing_filtered %>% 
+  select(date, type, month_current) %>% 
+  pivot_wider(names_from = type,
+              values_from = month_current) %>% 
+  janitor::clean_names()
+
+
+brewing_materials %>% 
+  ggplot(aes(malt_and_malt_products, sugar_and_syrups)) +
+  geom_point() + 
+  geom_smooth(method = "lm")
+```
+
+
+
+## Fit a "simple" lm
+
+```{r}
+# we do not include the intercept. Assumption: "no malt no sugar needed"
+beer_fit <- lm(sugar_and_syrups ~ 0 + malt_and_malt_products, data = brewing_materials)
+
+summary(beer_fit)
+```
+
+
+## Bootstrap resampling
+
+Lets fit the model on more data to get more robust estimations
+
+```{r}
+# create 1000 boostprap resamples
+set.seed(1234)
+beer_boot <- bootstraps(brewing_materials,
+                        times = 1000,
+                        # apparent needs to be true to calculate the conf.int. (see below!)
+                        apparent = TRUE)
+
+beer_boot
+```
+
+
+
+```{r}
+# fit the model on these 1000 samples
+# map takes an object (dataframe, list, vector etc.) and maps a function to it!
+
+beer_models <- beer_boot %>% 
+  
+  # first lets maps over all splits and use the lm-function (same as above)
+  mutate(model = map(splits, ~lm(sugar_and_syrups ~ 0 + malt_and_malt_products, 
+                                 data = .)),
+         
+         # lets map over each model and tidy it => get the model informations!
+         coef_info = map(model, tidy))
+
+# now we have fittet the model to all of the 1000 samples!
+# this is allowes us to get much more robust estimates!
+```
+
+
+## Evaluate the results
+
+```{r}
+# take a look at the coefficients
+beer_coefs <- beer_models %>% 
+  unnest(coef_info)
+
+# lets take a look at the distribution of the estimates!
+beer_coefs %>% 
+  ggplot(aes(estimate)) + 
+  geom_histogram(alpha = 0.8)
+```
+
+
+```{r}
+# we can even calculate the conf.intervals! 
+conf_int <- int_pctl(.data = beer_models,
+                     statistics = coef_info,
+                     alpha = 0.05)
+
+# Interpretation: beer producer need about 5 barrles malt for every one barrel of sugar
+
+# add the conf.int to the plot 
+beer_coefs %>% 
+  ggplot(aes(estimate)) +
+  geom_histogram(alpha = 0.8) + 
+  geom_vline(aes(xintercept = .lower), 
+             data = conf_int,
+             color = "red",
+             size = 1.5) + 
+  geom_vline(aes(xintercept = .upper),
+             data = conf_int,
+             color = "red",
+             size = 1.5)
+```
+
+
+```{r}
+# lets visualize the residuals for each model
+# use map with augment to get the true values (sugar_and_syrups) and the fitted values (.fitted)
+beer_aug <- beer_models %>% 
+  mutate(augmented = map(model, augment)) %>% 
+  unnest(augmented)
+
+# plot
+# the points are the real values
+# the set of lines are the predicted values of each of the 1000 models!
+# So you can see the varation between the models
+beer_aug %>% 
+  ggplot(aes(malt_and_malt_products, sugar_and_syrups))  +
+  geom_line(aes(y = .fitted, group = id),
+            alpha = 0.1,
+            color = "red") +
+  geom_point()
+```
+
