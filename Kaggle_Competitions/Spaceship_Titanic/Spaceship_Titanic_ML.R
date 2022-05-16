@@ -7,6 +7,7 @@
 library(tidyverse)
 library(tidymodels)
 library(tidylog)
+library(vip)
 library(skimr)
 library(naniar)
 library(corrplot)
@@ -19,32 +20,6 @@ theme_set(theme_light())
 
 train_titanic <- read_csv("Kaggle_Competitions/Spaceship_Titanic/train.csv")
 test_titanic <- read_csv("Kaggle_Competitions/Spaceship_Titanic/test.csv")
-
-# load names data
-female_names <- readtext::readtext("Kaggle_Competitions/Spaceship_Titanic/female.txt") %>% 
-  str_split("\n") %>% 
-  unlist()
-
-male_names <- readtext::readtext("Kaggle_Competitions/Spaceship_Titanic/male.txt") %>% 
-  str_split("\n") %>% 
-  unlist()
-
-
-# okay this does not get us further...
-train_titanic %>% 
-  separate(Name, into = c("First_name", "Last_name"), sep = " ")%>% 
-  mutate(Gender = case_when(First_name %in% female_names ~ "Female",
-                            First_name %in% male_names ~ "Male",
-                            TRUE ~  "NA")) %>% 
-  count(Gender)
-
-
-# lets take a look at the cabin number
-train_titanic <- train_titanic %>% 
-  separate(Cabin, into = c("Cabin_Deck", "Cabin_Number", "Cabin_Side"))
-
-test_titanic <- test_titanic %>% 
-  separate(Cabin, into = c("Cabin_Deck", "Cabin_Number", "Cabin_Side"))
 
 
 
@@ -81,6 +56,67 @@ test_titanic <- test_titanic %>%
 
 # Transported               Whether the passenger was transported to another dimension. This is the target, 
 #                           the column you are trying to predict.
+
+
+
+# load names data
+female_names <- readtext::readtext("Kaggle_Competitions/Spaceship_Titanic/female.txt") %>% 
+  str_split("\n") %>% 
+  unlist()
+
+male_names <- readtext::readtext("Kaggle_Competitions/Spaceship_Titanic/male.txt") %>% 
+  str_split("\n") %>% 
+  unlist()
+
+
+# okay this does not get us further...
+train_titanic %>% 
+  separate(Name, into = c("First_name", "Last_name"), sep = " ") %>% 
+  mutate(Gender = case_when(First_name %in% female_names ~ "Female",
+                            First_name %in% male_names ~ "Male",
+                            TRUE ~  "NA")) %>%
+  count(Last_name, sort = TRUE)
+
+
+# lets take a look at the cabin number (split them up first)
+train_titanic <- train_titanic %>% 
+  separate(Cabin, into = c("Cabin_Deck", "Cabin_Number", "Cabin_Side"),
+           remove = FALSE)
+
+test_titanic <- test_titanic %>% 
+  separate(Cabin, into = c("Cabin_Deck", "Cabin_Number", "Cabin_Side"),
+           remove = FALSE)
+
+
+# check for people who stayed together (families, couples etc.)
+Cabin_together_train <- train_titanic %>% 
+  select(PassengerId, Cabin) %>% 
+  group_by(Cabin) %>% 
+  mutate(N_people_cabin = n()) %>% 
+  arrange(desc(N_people_cabin)) %>% 
+  ungroup() 
+
+
+Cabin_together_test <- test_titanic %>% 
+  select(PassengerId, Cabin) %>% 
+  group_by(Cabin) %>% 
+  mutate(N_people_cabin = n()) %>% 
+  arrange(desc(N_people_cabin)) %>% 
+  ungroup() 
+
+
+
+train_titanic <- train_titanic %>% 
+  left_join(Cabin_together_train, by = c("PassengerId", "Cabin")) %>% 
+  mutate(N_people_cabin,
+         N_people_cabin = ifelse(N_people_cabin > 20, NA, N_people_cabin),
+         Together_cabin = ifelse(N_people_cabin > 1, TRUE, FALSE))
+
+test_titanic <- test_titanic %>% 
+  left_join(Cabin_together_test, by = c("PassengerId", "Cabin")) %>% 
+  mutate(N_people_cabin,
+         N_people_cabin = ifelse(N_people_cabin > 20, NA, N_people_cabin),
+         Together_cabin = ifelse(N_people_cabin > 1, TRUE, FALSE))
 
 
 
@@ -127,12 +163,12 @@ for(var in names(train_titanic)) {
 
 plot_data <- train_titanic %>% 
   drop_na() %>% 
-  select(-c(PassengerId, Name, Cabin_Number)) %>% 
+  select(-c(PassengerId, Name, Cabin_Number, Cabin)) %>% 
   mutate(Transported = as.factor(Transported))
 
 plot_data_long <- train_titanic %>%
   drop_na() %>% 
-  select(-c(PassengerId, Name, Cabin_Deck, Cabin_Number, Cabin_Side, HomePlanet, Destination, CryoSleep, VIP)) %>% 
+  select(-c(PassengerId, Name, Cabin, Cabin_Deck, Cabin_Number, Cabin_Side, HomePlanet, Destination, CryoSleep, VIP, Together_cabin)) %>% 
   mutate(Transported = as.factor(Transported)) %>% 
   pivot_longer(cols = -Transported, names_to = "key", values_to  = "value")
 
@@ -189,7 +225,7 @@ plot_data_long %>%
 ### 3. bar plots (categorical variables)
 
 gridExtra::grid.arrange(
-
+  
   
   # 3.1 Cabin_Deck
   plot_data %>%
@@ -210,19 +246,19 @@ gridExtra::grid.arrange(
               position = position_dodge(width = 1), vjust = -0.5) +
     scale_y_continuous(labels = scales::percent_format()) +
     labs(y = "Percent"),
-
   
   
-  # 3.2 Cabin_Deck
+  
+  # 3.2 Cabin_Side
   plot_data %>%
-    group_by(Transported, Cabin_Deck) %>%
+    group_by(Transported, Cabin_Side) %>%
     summarise(n = n()) %>% 
     ungroup() %>% 
-    group_by(Cabin_Deck) %>% 
+    group_by(Cabin_Side) %>% 
     mutate(total = sum(n),
            freq = n/total) %>% 
     ungroup() %>% 
-    ggplot(aes(x = Cabin_Deck, y = freq)) +
+    ggplot(aes(x = Cabin_Side, y = freq)) +
     geom_bar(aes(fill = Transported), 
              stat = "identity", 
              position = "dodge") +
@@ -235,17 +271,17 @@ gridExtra::grid.arrange(
   
   
   
-    
+  
   # 3.3 HomePlanet
   plot_data %>%
-    group_by(Transported, Cabin_Side) %>%
+    group_by(Transported, HomePlanet) %>%
     summarise(n = n()) %>% 
     ungroup() %>% 
-    group_by(Cabin_Side) %>% 
+    group_by(HomePlanet) %>% 
     mutate(total = sum(n),
            freq = n/total) %>% 
     ungroup() %>% 
-    ggplot(aes(x = Cabin_Side, y = freq)) +
+    ggplot(aes(x = HomePlanet, y = freq)) +
     geom_bar(aes(fill = Transported), 
              stat = "identity", 
              position = "dodge") +
@@ -322,6 +358,28 @@ gridExtra::grid.arrange(
     labs(y = "Percent"),
   
   
+  # 3.7 Together_cabin
+  plot_data %>% 
+    group_by(Transported, Together_cabin) %>% 
+    summarise(n = n()) %>% 
+    ungroup() %>% 
+    group_by(Together_cabin) %>% 
+    mutate(total = sum(n),
+           freq = n/total) %>% 
+    ungroup() %>% 
+    ggplot(aes(x = Together_cabin, y = freq))  +
+    geom_bar(aes(fill = Transported),
+             stat = "identity", 
+             position = "dodge") +
+    geom_text(aes(label = scales::percent(freq, accuracy = 0.1), 
+                  group = Transported), 
+              stat = "identity", 
+              position = position_dodge(width = 1), vjust = -0.5) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(y = "Percent"),
+  
+  
+  
   ncol = 2
   
 )
@@ -331,7 +389,7 @@ gridExtra::grid.arrange(
 ### 3. correlation plot
 
 train_titanic %>% 
-  select(-c(PassengerId, Cabin_Number, Name)) %>%
+  select(-c(PassengerId, Cabin_Number, Cabin, Name)) %>% 
   drop_na() %>% 
   mutate(HomePlanet = as.factor(HomePlanet),
          HomePlanet = as.numeric(HomePlanet),
@@ -368,8 +426,9 @@ train_titanic %>%
 
 # categorical
 # - CryoSleep
+# - Together_cabin
 # - VIP
-# - HomePlanet and Destination (but why?)
+# - HomePlanet and Destination 
 
 # Need to impute missing values!
 
@@ -386,11 +445,12 @@ sd(train_titanic$Transported)
 
 train <- train_titanic %>% 
   # remove identifiers
-  select(-c(PassengerId, Name, Cabin_Number)) %>% 
+  select(-c(PassengerId, Name, Cabin_Number, Cabin, N_people_cabin)) %>% 
   # make sure the target variable and logicals are a classes (binary)
   mutate(Transported = as.factor(Transported),
          CryoSleep = as.factor(CryoSleep),
-         VIP = as.factor(VIP))
+         VIP = as.factor(VIP),
+         Together_cabin = as.factor(Together_cabin))
 
 
 ## create train and test --------------------------------------------------
@@ -416,7 +476,7 @@ train_ML_folds <- vfold_cv(data = train_ML,
 ## Parallelisation --------------------------------------------------------
 
 cores <- parallel::detectCores(logical = FALSE)
-cl <- parallel::makePSOCKcluster(4)
+cl <- parallel::makePSOCKcluster(cores)
 doParallel::registerDoParallel(cl)
 showConnections()
 
@@ -434,7 +494,7 @@ df_recipe <- recipe(Transported ~ ., data = train_ML) %>%
            base = 10) %>% 
   step_normalize(all_numeric_predictors()) %>% 
   step_dummy(CryoSleep, VIP, HomePlanet, Destination,
-             Cabin_Deck, Cabin_Side,
+             Cabin_Deck, Cabin_Side, Together_cabin,
              one_hot = TRUE)
 
 
@@ -494,8 +554,8 @@ xgboost_model <- boost_tree() %>%
 # use grid_random instead of grid_regular (otherwise it takes too long...)
 
 glmnet_grid <- grid_regular(range_set(penalty(), c(0.1, 1)),
-                           range_set(mixture(), c(0.1, 1)),
-                           levels = 4) %>% 
+                            range_set(mixture(), c(0.1, 1)),
+                            levels = 4) %>% 
   mutate(penalty = penalty / 10)
 
 
@@ -546,7 +606,8 @@ system.time({
   glmnet_results <- glmnet_wflow %>% 
     tune_grid(resamples = train_ML_folds, 
               grid = glmnet_grid, 
-              control = control_grid(verbose = TRUE),
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
               metrics = metric_set(accuracy, roc_auc, sens, spec))
 })
 
@@ -558,7 +619,8 @@ system.time({
   rf_results <- rf_wflow %>% 
     tune_grid(resamples = train_ML_folds, 
               grid = rr_grid, 
-              control = control_grid(verbose = TRUE),
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
               metrics = metric_set(accuracy, roc_auc, sens, spec))
 })
 
@@ -570,7 +632,8 @@ system.time({
   ranger_results <- ranger_wflow %>% 
     tune_grid(resamples = train_ML_folds, 
               grid = rr_grid, 
-              control = control_grid(verbose = TRUE),
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
               metrics = metric_set(accuracy, roc_auc, sens, spec))
 })
 
@@ -582,7 +645,8 @@ system.time({
   xgboost_results <- xgboost_wflow %>% 
     tune_grid(resamples = train_ML_folds, 
               grid = xgboost_grid, 
-              control = control_grid(verbose = TRUE),
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
               metrics = metric_set(accuracy, roc_auc, sens, spec))
 })
 
@@ -592,6 +656,7 @@ system.time({
 
 ### evaluate hyperparameter
 
+# autoplot is not very useful here...
 autoplot(glmnet_results)
 autoplot(rf_results)
 autoplot(ranger_results)
@@ -609,6 +674,18 @@ show_best(x = xgboost_results,
 
 
 
+xgboost_results %>% 
+  collect_metrics() %>% 
+  filter(.metric == "accuracy") %>% 
+  select(-c(.estimator, .config)) %>% 
+  pivot_longer(cols = -c(.metric, mean, n, std_err), names_to = "parameter", values_to = "value") %>% 
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  geom_smooth(show.legend = FALSE) +
+  labs(x = "Value",
+       y = "Mean Accuracy") +
+  facet_wrap(~ parameter, scales = "free")
+
 
 
 ## Finalise model workflow ------------------------------------------------
@@ -620,8 +697,13 @@ final_wf <-
   xgboost_wflow %>% 
   finalize_workflow(best_xgboost)
 
-final_xgboost <- fit(final_wf, train_ML)
+final_wf %>% 
+  fit(data = train_ML) %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = ncol(train_ML_baked) - 1)
 
+
+final_xgboost <- fit(final_wf, train_ML)
 
 
 
@@ -663,8 +745,14 @@ predictions %>%
 
 
 
-############################ ONLY NOW we use the real testing data ############################ 
 
+###############################################################################################
+###############################################################################################
+############################                                       ############################ 
+############################ ONLY NOW we use the real testing data ############################ 
+############################                                       ############################ 
+###############################################################################################
+###############################################################################################
 
 # predict the real test data ----------------------------------------------
 

@@ -114,27 +114,30 @@ vb_test <- testing(vb_split)
 #2 Model specification => tune model parameters
 # hyperparameters cannot be trained by the model, so we have to take care of them (tune() them)
 
-xgb_spec <- boost_tree(trees = 1000,                                            # make sure you have enough trees
-           tree_depth = tune(), min_n = tune(), loss_reduction = tune(),        # how complex is the model going to be?
-           sample_size = tune(), mtry = tune(),                                 # degree of randomness?
-           learn_rate = tune()) %>% 
+xgb_spec <- boost_tree(trees = 1000,                                            # make sure you have enough trees (could also be tuned...)
+                       tree_depth = tune(),                                     # how complex is the model going to be?
+                       min_n = tune(), 
+                       loss_reduction = tune(),        
+                       sample_size = tune(), 
+                       mtry = tune(),                               
+                       learn_rate = tune()) %>% 
   # 6 hyperparameters to tune!
   set_engine("xgboost") %>%                                                     # it is a xgboost-model => engine = "xgboost"
   set_mode("classification")                                                    # classification or regression
-                                                                                # we are trying to say which team wins/loses
-                                                                                # given the gameplay-stats => classification
+# we are trying to say which team wins/loses
+# given the gameplay-stats => classification
 xgb_spec                                                                        # "summary"
 ```
 
 What values are we going to try? => choose a grid
 ```{r}
 xbg_grid <- grid_latin_hypercube(tree_depth(),
-                     min_n(),
-                     loss_reduction(),
-                     sample_size = sample_prop(),                              # needs a proportion
-                     finalize(mtry(), vb_train),                               # how many predictors should be sample? What 
-                     learn_rate(),                                             # is the biggest number? => we don not know!
-                     size = 20)                                                # use the training-data to finalize!  
+                                 min_n(),
+                                 loss_reduction(),
+                                 sample_size = sample_prop(),                              # needs a proportion
+                                 finalize(mtry(), vb_train),                               # how many predictors should be sample? What 
+                                 learn_rate(),                                             # is the biggest number? => we don not know!
+                                 size = 20)                                                # use the training-data to finalize!  
 xbg_grid
 # we are going to train the models with these 20 possible models and their parameters
 ```
@@ -167,13 +170,13 @@ registerDoParallel(cores = n_cores)
 
 set.seed(234)
 xbg_res <- tune_grid(xgb_wf,
-          resamples = vb_folds,
-          grid = xbg_grid,
-          control = control_grid(save_pred = TRUE))
+                     resamples = vb_folds,
+                     grid = xbg_grid,
+                     control = control_grid(save_pred = TRUE))
 
 # what is happening in the background?
 # we are tuning the workflow we defined before (xbg_wf)
-# for each of the 10 folds we train each of the 20 models => a lot of computation needs to be done!
+# for each of the 10 folds we train each of the 20 models (see xbg_grid) => a lot of computation needs to be done!
 # at the end we evaluate which ones are the best
 ```
 
@@ -187,7 +190,9 @@ xbg_res %>%
   pivot_longer(mtry:sample_size, names_to = "parameter", values_to = "value") %>% 
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(show.legend = FALSE) +
-  facet_wrap(~ parameter, scales = "free_y")
+  labs(x = "Value",
+       y = "Mean Accuracy") +
+  facet_wrap(~ parameter, scales = "free")
 
 # remeber we tried a space-filling design => we cannot pick the best value like in a regular grid
 ```
@@ -208,8 +213,8 @@ library(vip)
 
 final_xgb %>% 
   fit(data = vb_train) %>% 
-  pull_workflow_fit() %>% 
-  vip(geom = "point")
+  extract_fit_parsnip() %>% 
+  vip(geom = "col")
 
 # what are the characteristics that contributed the most to the classification (win vs. lose)?
 # => kills, errors, attacks, blocks etc.
