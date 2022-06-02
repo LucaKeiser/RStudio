@@ -1,5 +1,5 @@
 ---
-title: "Internal consistency reliablility in R"
+title: "Internal consistency reliablility & scale scores in R"
 author: "Luca"
 date: '2022-06-02'
 output: html_document
@@ -7,8 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=VoXr9VUKsCU&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=19)
-
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=VoXr9VUKsCU&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=19) and [here](https://www.youtube.com/watch?v=Y5DxhiD0Zr0&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=20)
 
 ### load packages
 
@@ -57,4 +56,35 @@ alpha(surveydata[,c("JobSat1", "JobSat2_rec", "JobSat3")])
 # if it should be dropped depends on what the item is measuring 
 # is it necessary for the research question?
 ```
+
+
+
+### creating scale scores 
+
+```{r}
+# you should always check first if the items are related enough
+# to justify the scale score you want to make
+# => Cronbach's alpha!
+
+alpha(surveydata[,c("TurnInt1", "TurnInt2", "TurnInt3")])
+
+# raw_alpha is 0.83 => looks good
+# dropping an item does not lead to an improvement...
+# lets keep all items
+```
+
+
+
+### create (overall) scale score for turnover intentions
+
+```{r}
+surveydata <- surveydata %>%
+  mutate(Overall_TrunInt = (TurnInt1 + TurnInt2 + TurnInt3) / 3) 
+
+# check
+surveydata %>% 
+  select(TurnInt1:TurnInt3, Overall_TrunInt)
+```
+
+
 
