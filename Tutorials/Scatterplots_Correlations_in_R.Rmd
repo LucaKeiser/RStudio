@@ -1,0 +1,155 @@
+---
+title: "Scatterplots & Correlation in R"
+author: "Luca"
+date: '2022-06-02'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/PerfMgmtRewardSystemsExample.csv")
+
+surveydata
+```
+
+
+### scatterplot using baseR
+
+```{r}
+plot(surveydata$Perf_Prod,
+     surveydata$SalesRevenue)
+# linear upwards trend is visible
+# no outliers visible
+```
+
+
+### create a scale score
+
+```{r}
+alpha(surveydata[,c("Perf_Qual", "Perf_Prod", "Perf_Effort", "Perf_Admin")])
+
+# raw_alpha = 0.94 => nice!
+# scale is consistent
+# no item droppment emproves the Cronbach's alpha
+
+surveydata <- surveydata %>% 
+  mutate(Overall_Perf = (Perf_Qual + Perf_Prod + Perf_Effort + Perf_Admin) / 4)
+
+# check
+surveydata %>% 
+  select(Perf_Qual:Perf_Admin, Overall_Perf)
+
+# plot again
+plot(surveydata$Overall_Perf,
+     surveydata$SalesRevenue,
+     xlab = "Overall Performance",
+     ylab = "Sales Revenue ($)")
+# a bit more continuous nature of the variable
+# posivte linear trend is visible
+# no outliers visible
+
+
+# lessR{}
+ScatterPlot(Overall_Perf,
+            SalesRevenue,
+            data = surveydata,
+            ellipse = TRUE,
+            xlab = "Overall Performance",
+            ylab = "Sales Revenue ($)")
+# linear positive trend is visible (check console output: r = 0.509)
+# some minor outliers
+```
+
+
+
+### cor function baseR
+
+```{r}
+cor(surveydata$Perf_Prod,
+    surveydata$SalesRevenue,
+    method = "pearson")
+
+# positive correlation 0.56
+# is the correlation statistically significant?
+# H0: correlation is 0; H1: correlation is not 0
+# test of significance with alpha = 0.05, two-tailed
+cor.test(surveydata$Perf_Prod,
+         surveydata$SalesRevenue,
+         method = "pearson")
+
+# yes, the correlation is statistically significant from 0 (not due to chance...)
+# p-value = 0.000000003466 (H0 can be rejected)
+# 95 percent confidence interval:
+# 0.4047810 to 0.6847665
+# => the population correlation is in 95% of the cases within this range
+```
+
+
+
+### cor function form lessR
+
+```{r}
+Correlation(Perf_Prod,
+            SalesRevenue,
+            data = surveydata)
+
+# Sample Covariance: s = 4754.142 (not a standardized measure; not easy to interpret...)
+# Sample Correlation: r = 0.561 (standardized measure; effect size)
+# H0 can be rejected (check output in the console)
+```
+
+
+
+### correlation matrix
+
+```{r}
+# dropping the EmpID
+surveydata <- surveydata %>% 
+  select(-EmpID)
+
+# recode sex to Female  = 1, Male = 0
+surveydata <- surveydata %>% 
+  mutate(Sex = as.numeric(ifelse(Sex == "Female", 1, 0)))
+
+table(surveydata$Sex)
+glimpse(surveydata)
+
+# now we can create the correlation matrix
+# cor function in baseR
+cor(surveydata,
+    method = "pearson")
+
+# corr.test from psych
+corr.test(surveydata,
+          method = "pearson")
+
+# all informations
+print(
+  corr.test(surveydata,
+            method = "pearson"),
+  short = FALSE)
+
+# NOTE: the variable names in the Confidence intervals output are truncated...
+# => Prf_Q-Prf_P = Perf_Qual - Perf_Prod
+
+
+# only the lower part of the matrix
+lowerCor(surveydata,
+         method = "pearson")
+```
+
+

@@ -1,0 +1,118 @@
+---
+title: "Aggregating & Segmenting Data in R"
+author: "Luca"
+date: '2022-06-02'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=21)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/EmployeeSurveyData.csv")
+
+surveydata
+```
+
+
+
+### describe/summarize data in aggregate
+
+```{r}
+# count number of cases per unit
+surveydata %>% 
+  count(Unit)
+
+# or
+surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(n = n())
+
+
+# number of distinct values
+# distinct Supervisors per unit
+surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(n = n_distinct(Supervisor))
+
+# distinct Employees per unit (same output as above)
+surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(n = n_distinct(EmployeeID))
+```
+
+
+### calculate descriptive statistics
+
+```{r}
+surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(avg_JS1 = mean(JobSat1,
+                           na.rm = TRUE))
+
+surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(avg_JS1 = mean(JobSat1,
+                           na.rm = TRUE),
+            avg_TI1 = mean(TurnInt1,
+                           na.rm = TRUE),
+            sd_JS1 = sd(JobSat1,
+                        na.rm = TRUE),
+            sd_TI1 = sd(TurnInt1,
+                        na.rm = TRUE))
+
+# create a new data set
+agg_surveydata <- surveydata %>% 
+  group_by(Unit) %>% 
+  summarize(avg_JS1 = mean(JobSat1,
+                           na.rm = TRUE),
+            avg_TI1 = mean(TurnInt1,
+                           na.rm = TRUE),
+            sd_JS1 = sd(JobSat1,
+                        na.rm = TRUE),
+            sd_TI1 = sd(TurnInt1,
+                        na.rm = TRUE))
+
+# psych{}
+describeBy(surveydata,
+           group = surveydata$Unit)
+```
+
+
+### create a new variables
+
+```{r}
+surveydata <- surveydata %>% 
+  group_by(Unit) %>% 
+  mutate(UnitCount = n(),
+         avg_JS1 = mean(JobSat1,
+                        na.rm = TRUE)) %>% 
+  ungroup()
+
+surveydata %>% 
+  select(EmployeeID, Unit, UnitCount, avg_JS1)
+```
+
+
+### visualize
+
+```{r}
+Plot(JobSat1, 
+     by1 = Unit,
+     data = surveydata)
+```
+
