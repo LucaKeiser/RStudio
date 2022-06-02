@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=iROHLA_TXQM)
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=18)
 
 
 ### load packages

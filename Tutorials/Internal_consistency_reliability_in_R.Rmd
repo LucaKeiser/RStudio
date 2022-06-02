@@ -3,5 +3,58 @@ title: "Internal consistency reliablility in R"
 author: "Luca"
 date: '2022-06-02'
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=VoXr9VUKsCU&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=19)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/EmployeeSurveyExample.csv")
+
+surveydata
+```
+
+
+### recodeing/reverse coding the JobSat2_rev
+
+```{r}
+# create JobSat2_rec
+surveydata <- surveydata %>% 
+  mutate(JobSat2_rec = 6 - JobSat2_rev) 
+
+# check
+surveydata %>% 
+  arrange(JobSat2_rev) %>% 
+  select(JobSat2_rev, JobSat2_rec)
+```
+
+
+
+### estimate Cronbach's alpha
+
+```{r}
+alpha(surveydata[,c("JobSat1", "JobSat2_rec", "JobSat3")])
+
+# raw_alpha and std.alpha are identical here
+# Cronbach's alpha over 0.7 is acceptable (1 is the highest value)
+# so the internal consistency of the scale is acceptable
+
+# take a look at the "Reliability if an item is dropped:"
+#  => if we drop the third item the internal consistency increases!
+# if it should be dropped depends on what the item is measuring 
+# is it necessary for the research question?
+```
 
