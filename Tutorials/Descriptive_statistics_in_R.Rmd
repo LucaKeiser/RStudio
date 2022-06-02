@@ -1,0 +1,20 @@
+---
+title: "Descriptive Statistics in R"
+author: "Luca"
+date: "02/06/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=iROHLA_TXQM)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(lessR)
+library(psych)
+```
+

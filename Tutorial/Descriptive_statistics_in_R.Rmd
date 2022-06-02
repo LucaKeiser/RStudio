@@ -1,8 +1,0 @@
----
-title: "R_Tutorial"
-author: "Luca"
-date: "31/08/2021"
-output: html_document
----
-
-Check out the full tutorial [here](https://www.youtube.com/watch?v=iROHLA_TXQM)

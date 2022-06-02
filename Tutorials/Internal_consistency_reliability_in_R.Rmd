@@ -1,0 +1,7 @@
+---
+title: "Internal consistency reliablility in R"
+author: "Luca"
+date: '2022-06-02'
+output: html_document
+---
+
