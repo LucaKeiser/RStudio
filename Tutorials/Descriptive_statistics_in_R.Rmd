@@ -16,5 +16,123 @@ Check out the full tutorial by David Caughlin [here](https://www.youtube.com/wat
 library(tidyverse)
 library(lessR)
 library(psych)
+library(skimr)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/EmployeeSurveyExample.csv")
+
+surveydata
+```
+
+
+
+### nominal/categorical & ordinal measurement scale variables
+
+```{r}
+### do some counting
+surveydata %>% 
+  count(Gender)
+
+# 1 = strongly disagree; 5 = strongly agree
+surveydata %>% 
+  count(JobSat1)
+
+surveydata %>% 
+  count(Gender, Location)
+
+### cross tables
+xtabs(~ Gender + Location, 
+      data = surveydata,
+      addNA = TRUE)
+
+### unsing lessR
+
+# bar charts
+BarChart(JobSat1, 
+         data = surveydata)
+
+BarChart(JobSat1, 
+         by1 = Location,
+         data = surveydata)
+
+BarChart(JobSat1, 
+         by = Location,
+         data = surveydata)
+
+
+# pie charts
+PieChart(Gender,
+         data = surveydata,
+         hole = 0)
+```
+
+
+
+### continuous variables: interval or ratio measurement scales
+
+```{r}
+### histograms
+hist(surveydata$Tenure_Yrs)
+
+surveydata %>% 
+  ggplot(aes(Tenure_Yrs))  +
+  geom_histogram(bins = 9,
+                 fill = "red",
+                 alpha = 0.5,
+                 color = "white")
+
+# violin plot and box plot in one (lessR{})
+# a lot of information (plot and in the console)
+Plot(Tenure_Yrs,
+     data = surveydata)
+
+Plot(Tenure_Yrs,
+     by1 = Location,
+     data = surveydata)
+
+Plot(Tenure_Yrs,
+     by = Location,
+     data = surveydata)
+
+
+
+### measurements of central tendency
+mean(surveydata$Tenure_Yrs,
+     na.rm = TRUE)
+
+median(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+
+
+
+### measurements of dispersion 
+min(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+
+max(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+
+var(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+
+sd(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+# sd is equal to sqrt(var())
+
+range(surveydata$Tenure_Yrs,
+       na.rm = TRUE)
+
+
+### psych::describe()
+describe(surveydata)
+
+
+### skimr::skim()
+skim(surveydata)
 ```
 
