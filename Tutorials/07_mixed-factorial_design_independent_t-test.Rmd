@@ -106,6 +106,7 @@ ttest(PreTest ~ Condition,
 
 # Hypothesis Test of 0 Mean Diff:  t = 1.211,  df = 47.984, p-value = 0.232
 # => the difference is not statistically significant!
+# => pretest scores are about the same!
 ```
 
 

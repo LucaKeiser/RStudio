@@ -1,0 +1,69 @@
+---
+title: "Centering & Standardizing Variables in R"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/DiffPred.csv")
+
+surveydata
+```
+ 
+ 
+ 
+### Centering: Grand-Mean Centering
+
+better to interpret in an linear regression model for example or in the context of moderated linear regresssion (interaction terms) grand-mean centering is used before we create the interaction term in order to minimize co-linearity between the predictors and their product term
+
+
+```{r}
+# create the grand-mean centered interview value
+surveydata <- surveydata %>% 
+  mutate(centered_interview = interview - mean(interview, na.rm = TRUE))
+
+mean(surveydata$interview,
+     na.rm = TRUE)
+
+# centered variable
+mean(surveydata$centered_interview,
+     na.rm = TRUE)
+```
+
+
+
+### standardizing
+
+=> z-scores for each observation => mean = 0 and sd = 1!
+
+```{r}
+surveydata <- surveydata %>% 
+  mutate(stand_interview = scale(.$interview),
+         stand_interview = as.numeric(stand_interview))
+
+
+mean(surveydata$interview)
+sd(surveydata$interview)
+
+# standardized variable
+mean(surveydata$stand_interview)
+sd(surveydata$stand_interview)
+```
+
+
