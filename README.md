@@ -41,8 +41,10 @@ David Robinson
 => check out: https://www.youtube.com/user/safe4democracy
 
 Julia Silge
-=> check out:  https://www.youtube.com/c/JuliaSilge
+=> check out: https://www.youtube.com/c/JuliaSilge
 
+David Caughlin
+=> check out: https://www.youtube.com/c/DavidCaughlin
 
 **5) xgboost Tutorial 1**
 
@@ -51,5 +53,7 @@ Check out: https://www.youtube.com/watch?v=gKyUucJwD8U
 **6) xgboost Tutorial 2**
 
 Check out: https://www.youtube.com/watch?v=hpudxAmxHSM
+
+
 
 
