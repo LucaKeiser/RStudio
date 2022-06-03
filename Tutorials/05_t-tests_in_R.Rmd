@@ -1,0 +1,180 @@
+---
+title: "t-Tests in R"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/TrainingEvaluation_PrePostControl.csv")
+surveydata_2 <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/TrainingEvaluation_PrePostOnly.csv")
+
+surveydata
+surveydata_2
+```
+
+
+## introduction
+
+Are two means from two different samples statistically different from one another?
+Here: is the mean for the PostTest in the New condition significantly different from the Old condition?
+=> independent samples-t-test or paired-samples t-test
+
+
+
+## 1. independent-samples t-test
+
+### test statisitcal assumptions first!
+
+```{r}
+surveydata
+
+# 1. normal distribution of the outcome variable for each level of predictor
+# 2. equality of variance for outcome variable for each level of predictor
+
+Plot(PostTest, 
+     by1 = Condition,
+     data = surveydata)
+
+# the distributions look about normal
+# the variances are close to each other
+
+# additionally: Levene's test
+car::leveneTest(y = surveydata$PostTest, group = surveydata$Condition)
+
+# Levene's test is not significant (no rejection of H0)
+# the two variances are not significantly different (homogeneity of variance).
+# => good
+```
+
+
+
+### run the idenpendendent-samples t-test lessR{}
+
+```{r}
+ttest(PostTest ~ Condition,
+      data = surveydata,
+      # samples are not dependent on one another 
+      # no repeated measurement for example
+      # independent-samples t-test
+      paired = FALSE)
+
+# take a look at the console output
+# Shappiro-Wilk normality test (H0: normal distribution => p-values should not be statistically significant)
+# Levene's test is also given here...
+# => conditions are met
+# => we can infer:
+# we have to reject the H0 => there is a significantly difference between the means (OLD vs. NEW condition)
+# effect size: standardized Mean Difference of PostTest, Cohen's d:  1.357 (large to very large effect size!)
+
+# if the difference is not statistically different then the two means are equal to one anohter... (no difference!)
+```
+
+
+
+### visualize: create a bar chart of results
+
+```{r}
+surveydata %>% 
+  group_by(Condition) %>% 
+  summarize(avg_PostTest = mean(PostTest)) %>% 
+  ggplot(aes(Condition, avg_PostTest,
+             fill = Condition)) + 
+  geom_col() +
+  labs(title = "Old vs. New Condition",
+       subtitle = "Independent-Samples t-Test",
+       y = "Average PostTest Scores")
+```
+
+
+
+
+## 2. paired-samples t-test
+
+```{r}
+surveydata_2
+# every employee has score on both (!) the PreTest and the PostTest (scores are paired by the employees)
+```
+
+
+### test statistical assumptions first!
+
+```{r}
+# 1. differences in scores are independent of each other (=> cases are randomly selected form the underlying population!)
+# we cannot test the first assumption here...
+# 2. differences in scores are normally distributed in the underlying population
+
+# test second assumpution
+surveydata_2 <- surveydata_2 %>% 
+  mutate(diff = PostTest - PreTest)
+
+surveydata_2
+
+Plot(diff,
+     data = surveydata_2)
+
+# good evidence for a normal distribution
+```
+
+
+### run paired-samples t-test in R
+
+```{r}
+ttest(PreTest, PostTest,
+      data = surveydata_2,
+      # repeated mesurement!
+      paired = TRUE)
+
+# descriptively: people increase from PreTest to PostTest (mean: 19.64)
+# but is this difference/increase statistically significant (statistically different from 0)?
+
+# normal distribution is given (not significant Shapiro-Wilk test)
+# very low p-value => mean is statistically different from 0 (H0: mu = 0)
+# effect size: Cohen's d = 1.64 (large to very large effect size!)
+```
+
+
+
+### visualize: create bar chart
+
+```{r}
+surveydata_2 %>% 
+  summarize(avg_PreTest = mean(PreTest),
+            avg_PostTest = mean(PostTest)) %>% 
+  pivot_longer(cols = everything(),
+               names_to = "type",
+               values_to = "value") %>% 
+  ungroup() %>% 
+  mutate(type = fct_reorder(type, value, 
+                            .desc = FALSE)) %>% 
+  ggplot(aes(type, value,
+             fill = type)) + 
+  geom_col() + 
+  labs(title = "PostTest vs. PreTest",
+       subtitle = "Paired-Samples t-Test",
+       x = "",
+       y = "",
+       fill = "Type")
+```
+
+
+
+
+
+
+
