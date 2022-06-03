@@ -1,0 +1,111 @@
+---
+title: "Evaluating 2x2 Mixed-Factorial Design Using Independent-Samples t-Test in R"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/TrainingEvaluation_PrePostControl.csv")
+
+surveydata
+```
+
+
+## Introduction
+
+2x2 mixed-factorial design:
+
+within-subjects factor (2 levels): pretest/post test (every person completes both)
+between-subjects factor (2 levels): Condition-variable (New vs. Old) (every person is assigned to only one condition)
+
+balanced design => same number of cases for each group
+
+
+### create outcome variable
+```{r}
+surveydata <- surveydata %>% 
+  mutate(diff = PostTest - PreTest)
+```
+
+
+
+### statistical assumoptions
+=> same as with independent-samples t-test
+
+```{r}
+# 1. outcome variable is normally distributed in each level of categorical predictor variable
+# 2. equal variances between levels of categorical predictor variable
+
+### visual analysis
+
+Plot(diff, 
+     by1 = Condition,
+     data = surveydata)
+
+# looks pretty good 
+```
+
+
+### independent-samples t-test with difference score outcome
+
+```{r}
+ttest(diff ~ Condition,
+      data = surveydata,
+      paired = FALSE)
+
+# check console output
+# assumptions are fulfilled (not significant Shapiro-Wilk test and not significant Levene's test)! 
+
+# Hypothesis Test of 0 Mean Diff:  t-value = 2.573,  df = 48,  p-value = 0.013
+# => statistically significant differences between the means!
+
+# is it a practical difference?
+# => Effect Size
+# => Cohen's d = 0.73 (medium to large effect!)
+```
+
+
+### indendent-samples t-test with pretest as outcome variable
+
+Are the pretest scores about the same? If the people are randomly assigned to the groups this shoulb be the case. But we can test this as well.
+=> independent-samples t-test
+
+```{r}
+# test assumpitons
+
+Plot(PreTest, 
+     by1 = Condition,
+     data = surveydata)
+
+# looks good as well
+
+# run the test
+ttest(PreTest ~ Condition,
+      data = surveydata,
+      paired = FALSE)
+
+
+# is the difference between the mean of 2.28 statistically significant or due to chance?
+# => assumptions are all fullfilled as well
+
+# Hypothesis Test of 0 Mean Diff:  t = 1.211,  df = 47.984, p-value = 0.232
+# => the difference is not statistically significant!
+```
+
+

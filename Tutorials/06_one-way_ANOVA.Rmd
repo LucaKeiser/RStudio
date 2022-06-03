@@ -1,0 +1,156 @@
+---
+title: "One-Way ANOVA"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(effsize)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/TrainingEvaluation_ThreeGroupPost.csv")
+
+surveydata
+```
+
+
+## Introdcution
+
+ANOVA (Analysis of Variance)
+one-way because we only have one factor (Condition) as a predictor variable.
+NOTE: but this predictor has 3 levels => need to use ANOVA istead of t-test...
+Question: what is the best Conditon (No vs. Old vs. New) => are the means between these groups statistically different from one another?
+
+
+### statistical assumptions
+
+```{r}
+### visualize statistical assumptions
+
+# are the distributions of the outcome variable for each condition normally distributed?
+# equal variance across the conditions?
+Plot(PostTest,
+     by1 = Condition,
+     data = surveydata)
+
+# looks good
+
+
+
+### statistical tests
+
+# normality assumption
+surveydata %>% 
+  split(.$Condition) %>% 
+  map(~ shapiro.test(.$PostTest))
+# high p-values (H0 cannot be rejected) => normal distribution for all Conditions!
+
+
+
+# equality of variances
+car::leveneTest(PostTest ~ Condition,
+                data = surveydata)
+# high p-values (H0 cannot be rejected) => equality of variances!
+```
+
+
+
+### run one-way ANOVA
+
+```{r}
+ANOVA(PostTest ~ Condition,
+      data = surveydata)
+
+
+### interpretation of the plots
+
+# 1. 95% family-wise confidence level
+# if 0 is included in the interval => not statistically significant (the difference between Old and New is not statistically significant)
+# if 0 is not included in the interval => statistically significant (the differences between No and New AND Old and No is statistically significant)
+
+# 2. scatterplot with the distribution and the mean values for each group (Condition)
+
+
+### interpretation of console output
+
+# ANOVA
+# significant F-test (high F-values and very low p-value) => H0 (no differences in means) can be rejected!
+# => the 3 means are statistically different from each other!
+# NOTE: this is an omnibus test. So it does not tell us which means are different! It just states that statistically significant differences exist.
+
+
+# Association and Effect Size
+# R Squared: 0.220 (22 % of the variance of the output variable can be explained by Condition)
+# R Sq Adjusted and Omega Squared => measures on the population level...
+# the size of these measurements indicate a medium to large effect size
+
+# Cohen's f: 0.494 (indicates a large effect size)
+
+# NOTE: these measurements are also on an omnibus level...
+
+
+
+# but which pairs are significantly different from one another?
+#   TUKEY MULTIPLE COMPARISONS OF MEANS 
+# 
+# Family-wise Confidence Level: 0.95 
+# ----------------------------------- 
+#             diff    lwr   upr p adj 
+#    No-New -10.00 -15.48 -4.52  0.00   => significant
+#   Old-New  -2.76  -8.24  2.72  0.45   => not significant
+#    Old-No   7.24   1.76 12.72  0.01   => significant
+```
+
+
+### effect size (practical significance) for the group differences
+
+```{r}
+
+# we need to subset!
+# No vs New
+cohen.d(PostTest ~ Condition,
+        data = filter(surveydata, Condition != "Old"),
+        paired = FALSE)
+
+# No vs Old
+cohen.d(PostTest ~ Condition,
+        data = filter(surveydata, Condition != "New"),
+        paired = FALSE)
+
+# it makes no sense to calculate Cohen's d for Old-New, because it was not significant!
+
+# NOTE: we are interest in the absolut value of Cohen's d (the the leading signs do not matter, they are arbitrary)
+```
+
+
+### visualize
+
+```{r}
+surveydata %>% 
+  group_by(Condition) %>% 
+  summarize(avg_PostTest = mean(PostTest)) %>% 
+  ungroup() %>% 
+  mutate(Condition = fct_reorder(Condition, avg_PostTest)) %>% 
+  ggplot(aes(Condition, avg_PostTest,
+             fill = Condition)) + 
+  geom_col(show.legend = FALSE) + 
+  labs(title = "Different Training Conditions",
+       subtitle = "ANOVA",
+       x = "Training Condition",
+       y = "Average Post Test Score")
+```
+
