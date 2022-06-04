@@ -1,0 +1,277 @@
+---
+title: "Multiple Linear Regression (MLR) in R"
+author: "Luca"
+date: '2022-06-04'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/SelectionExercise.csv")
+
+surveydata
+```
+
+
+### simple linear regression models
+
+```{r}
+# 1. SJT
+Regression(Performance ~ SJT,
+           data = surveydata)
+
+#       Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# SJT     0.682      0.086    7.915    0.000       0.512       0.851 
+# => SJT is statistically significant
+
+# R-squared:  0.174    Adjusted R-squared:  0.171    PRESS R-squared:  0.157 
+# ~15% of the variance/variablitiy in Performance are explained by SJT
+
+
+# 2. EmotionalIntelligence
+Regression(Performance ~ EmotionalIntelligence,
+           data = surveydata)
+
+#                          Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# EmotionalIntelligence     0.698      0.086    8.108    0.000       0.528       0.867 
+# EmotionalIntelligence is statistically significant
+
+# R-squared:  0.181    Adjusted R-squared:  0.178    PRESS R-squared:  0.165 
+# ~16.5% of the variance/variablitiy in Performance are explained by EmotionalIntelligence
+
+
+# 3. Proactivity 
+Regression(Performance ~ Proactivity,
+           data = surveydata)
+
+#               Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# Proactivity     0.487      0.066    7.390    0.000       0.357       0.616 
+# => Proactivity us statistically significant
+
+# R-squared:  0.155    Adjusted R-squared:  0.152    PRESS R-squared:  0.138 
+# => ~15% of the variance/variablitiy in Performance are explained by Proactivity
+
+# NOTE: the predictors are all not standardized, so we cannot compare them directly...
+#       we have a good reason to include all of the predictor into one model (multiple linear regression)
+#       statistical assumptions should be tested as well (is not done here...)
+```
+
+
+
+### multiple linear regression (MLR)
+
+```{r}
+Regression(Performance ~ SJT + EmotionalIntelligence + Proactivity,
+           data = surveydata)
+
+
+### Plot 3: ScatterPlot Matrix 
+
+# => first column gives us the bivariate correlations between Performance and the predictors (bivariate associations or 0-order associations)
+# => linearity assumtion is given for each predictor
+
+# assumption of (multi)collinearity (we want to avoid this)
+# => correlation between SJT and Proactivity is 0.24 (that is fine)
+# => correlation between Emotionalintelligence and Proactivity is 0.32 (that is fine as well)
+# => correlation between SJT and EmotionalIntelligence is 0.93 (that is too high! These are practically the same...)
+
+
+
+### console output - COLLINEARITY
+
+#                       Tolerance       VIF 
+#                   SJT     0.127     7.887 
+# EmotionalIntelligence     0.121     8.278 
+#           Proactivity     0.873     1.146 
+
+# => Tolerance = 1 / VIF
+# => rule of thumb: if the tolerance is <= 0.2 then we might have some problems with collinearity...
+# => SJT and EmotionalIntelligence are problematic!
+# => that is not surprising (correlation between sJT and EmotionalIntelligence is 0.93) 
+# => we need to drop one of the variables in order to get a good model! We drop EmotianlIntelligence here...
+
+```
+
+
+
+### second MLR model
+
+```{r}
+Regression(Performance ~ SJT + Proactivity,
+           data = surveydata)
+
+# 0. assumption
+# => cases are randomly sampled (we cannot test this here and assume that it is given)
+
+### console output - COLLINEARITY 
+
+#             Tolerance       VIF 
+#         SJT     0.944     1.060 
+# Proactivity     0.944     1.060 
+
+# => this looks much better now! 
+# => collinearity assumption is met based on tolerance statistics
+
+
+### Plot 1: Distribution of Residuals
+# => the same as in SLR
+# => based on the plot we have met the assumption of normally distributed residuals
+
+
+# Plot 2: Residuals vs Fitted Values 
+# => the solid line should be on the dotted line (ideal result)
+# => based on the plot we have some confidence we have:
+#    met the assumption of homoscedasticity of variances 
+#    and the assumption of average residual variance being somewhat close to 0.
+
+
+### console output - RESIDUALS AND INFLUENCE
+
+#        SJT Proactivity Performance fitted   resid rstdnt dffits cooks 
+# 201  9.000       1.000      24.000 10.986  13.014  4.596  0.745 0.173 
+#  70 10.000      12.000       5.000 15.792 -10.792 -3.781 -0.675 0.145 
+# 170 10.000      12.000       5.000 15.792 -10.792 -3.781 -0.675 0.145 
+# 270 10.000      12.000       5.000 15.792 -10.792 -3.781 -0.675 0.145
+
+# => case 201, 70, 170, 270 have a high Cook's distances (compared to other scores)... potential outliers
+# => be careful with dropping them (maybe the sampling was not good)
+
+
+# OVERALL: we have met the statistical assumptions and can go on to interpreting the model!
+```
+
+
+
+### interpretation of the MLR model
+
+```{r}
+###  console output - ESTIMATED MODEL FOR PERFORMANCE 
+
+#              Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# (Intercept)     5.555      0.534   10.399    0.000       4.503       6.606   => significant
+#         SJT     0.561      0.084    6.695    0.000       0.396       0.725   => significant
+# Proactivity     0.386      0.063    6.099    0.000       0.261       0.510   => significant
+
+# => even when we control for Proactivity, SJT is statistically significant (and vice versa)
+# => both explain unique variance/variability in Perfromance
+# => for every increase by one unit in SJT the Performance score increases by 0.561 scores (when controlling for Proactivity)
+# => NOTE: the coefficients are not standardized, so we cannot compare them to each other!
+
+
+# R-squared:  0.266    Adjusted R-squared:  0.261    PRESS R-squared:  0.238 
+# => ~26% of the variance/variability in Performance can be explained by SJT and Proactivity (large effect)
+
+# rule of thumb for R^2
+# 0.01: small
+# 0.09: medium
+# 0.25: large
+
+# Null hypothesis of all 0 population slope coefficients:
+#  F-statistic: 53.733     df: 2 and 297     p-value:  0.000 
+# => our model fits the data significantly better than a 0-model (with 0 predictors)
+
+
+### console output - CORRELATION MATRIX  
+
+#             Performance  SJT Proactivity 
+# Performance        1.00 0.42        0.39 
+#         SJT        0.42 1.00        0.24 
+# Proactivity        0.39 0.24        1.00 
+
+# => NOTE:  these are all 0-order correlations (no controlling for other variables)
+# =>        effect size for each of the predictors by themselves
+# =>        alone the variables have medium to large effect sizes (the R^2 above has a large effect size though, because it combines the two!)
+
+# rule of thumb for correlations
+# 0.10: small
+# 0.30: medium
+# 0.50: large
+```
+
+
+
+### standardized regression coefficients
+
+```{r}
+Regression(Performance ~ SJT + Proactivity,
+           recode="z",
+           data = surveydata)
+
+# does not seem to work...
+# but we can do this manually as well!
+
+surveydata <- surveydata %>% 
+  mutate(Performance_stand = ((Performance - mean(Performance)) / sd(Performance)),
+         SJT_stand = ((SJT  - mean(SJT)) / sd(SJT)),
+         Proactivity_stand = (Proactivity - mean(Proactivity)) / sd(Proactivity))
+
+
+Regression(Performance_stand ~ SJT_stand + Proactivity_stand,
+           data = surveydata)
+
+# now the regression coefficients are comparable to each other
+# but the interpretaion is not as intuitive as above
+```
+
+
+
+### remove those cases associated with row numbers 201, 70, 170, 270 (potential outliers)
+
+```{r}
+
+`%ni%` <- negate(`%in%`)
+
+Regression(Performance ~ SJT + Proactivity,
+           data = surveydata,
+           row = (ID %ni% c(201, 70, 170, 270)))
+
+#              Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# (Intercept)     4.734      0.491    9.649    0.000       3.769       5.700 
+#         SJT     0.608      0.076    7.966    0.000       0.458       0.758 
+# Proactivity     0.504      0.058    8.688    0.000       0.390       0.619 
+
+# R-squared:  0.374    Adjusted R-squared:  0.370    PRESS R-squared:  0.351 
+# model fit seems to be even better (but be careful with removing data points!)
+```
+
+
+
+
+### predict some scores using our model
+
+```{r}
+reg_MLR <- lm(Performance ~ SJT + Proactivity,
+              data = surveydata)
+
+performance_predictions <- tibble(
+  SJT = seq(0, 10, length = 1000),
+  Proactivity = seq(0, 15, length = 1000)
+) 
+
+tibble(
+  sim_SJT = performance_predictions$SJT,
+  sim_Proactivity = performance_predictions$Proactivity,
+  predictions = as.numeric(predict(reg_MLR, performance_predictions))
+)
+```
+
+
+
+
+

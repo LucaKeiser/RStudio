@@ -150,6 +150,14 @@ Regression(Performance ~ SJT,
            data =  surveydata)
 
 # does not seem to work (Intercept should be 0...)
+# but we can do this manually as well!
+
+surveydata <- surveydata %>% 
+  mutate(Performance_stand = ((Performance - mean(Performance)) / sd(Performance)),
+         SJT_stand = ((SJT  - mean(SJT)) / sd(SJT)))
+
+Regression(Performance_stand ~ SJT_stand,
+           data =  surveydata)
 ```
 
 
