@@ -1,0 +1,400 @@
+---
+title: "Estimating a Market Pay Line in R - Simple Linear Regression"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/MarketPayLine.csv")
+
+surveydata
+```
+
+
+
+### visualization of the association
+
+```{r}
+surveydata %>% 
+  ggplot(aes(Points, Pay)) + 
+  geom_point() + 
+  scale_y_continuous(labels = scales::dollar_format()) + 
+  labs(x = "Job Evaluation Points",
+       y = "Market Pay")
+
+# linar regression model is good to explain the relationsship between the variables
+# NOTE: there is some kind of shape visible
+# => maybe we have to include a quadratic term to get a better fit
+```
+
+
+
+## specify the simople linear regression (SLR) model 
+
+```{r}
+# we use all the data available
+reg_all <- lm(Pay ~ Points, 
+              data = surveydata)
+
+reg_all
+```
+
+
+
+### evalute the statistical assumptions for a SLR model
+
+```{r}
+# create data frame for plotting
+df_SLR <- surveydata %>% 
+  gather_residuals(reg_all) %>% 
+  gather_predictions(reg_all) %>% 
+  mutate(resid_std = (resid - mean(resid))/sd(resid),
+         pred_std = (pred - mean(pred))/sd(pred),
+         cooks = cooks.distance(reg_all),
+         ID = 1:nrow(surveydata)) %>% 
+  relocate(ID)
+
+
+
+### 1. fitted values vs. residuals
+df_SLR %>% 
+  ggplot(aes(pred, resid)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  geom_hline(yintercept = 0,
+             color = "grey",
+             size = 1.5,
+             lty = 2) + 
+  geom_text(aes(label = ID),
+            vjust = 1.1,
+            hjust = 1.1) +
+  labs(title = "Residuals vs. Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals")
+
+# clear curve visible => there is some non-linearity in the data
+# residuals are not equally distributed across the levels of the output variable 
+# average residual error seems to be greater than zero
+
+
+
+### 2. normal distribution of residuals?
+# 2.1.
+df_SLR %>% 
+  ggplot(aes(resid_std)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 12,
+                 alpha = 0.5) +
+  geom_density(fill = "red",
+               alpha = 0.25) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(df_SLR$resid_std), sd = sd(df_SLR$resid_std)),
+                color = "blue",
+                size = 1.5,
+                lty = 2)
+
+# looks not too bad
+
+
+# 2.2. QQ-plot
+df_SLR %>% 
+  ggplot(aes(sample = resid_std)) +
+  stat_qq() +
+  stat_qq_line(color = "grey",
+               lty = 2,
+               size = 1.5) + 
+  labs(title = "Q-Q Plot",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals")
+
+# baseR  
+plot(reg_all, 2)
+
+# all points should be near or ideally on the line for the residuals to be normally distributed
+# => looks not too bad here
+
+
+
+### 3. Cook's distance values (checking for influential outliers)
+df_SLR %>% 
+  ggplot(aes(ID, cooks)) + 
+  geom_col(alpha = 0.75) + 
+  geom_hline(yintercept = 4/nrow(surveydata),
+             lty = 2,
+             size = 1.5,
+             color = "red") + 
+  geom_hline(yintercept = 1,
+             lty = 2,
+             size = 1.5,
+             color = "blue") +
+  labs(title = "Cook's Distance",
+       y = "Cook's Distance")
+
+# rule of thumb for cutoff value: 4 / sample size (here: 4 / 25 = 0.16)
+# => every observation with a Cook's distance > 0.16 is a potential outlier (see red line in the graph)
+# OR cases with Cook's distance > 1 (see blue line in the graph)
+# NOTE: we have a rather small sample size... Exclusion of cases is not advisable in this case...
+
+# => OVERALL: we come close to fulfill the assumptions (it's okay...)
+# => you will almost never fulfill these assumptions 100 %
+```
+
+
+
+### interpret the SRL model results
+
+```{r}
+summary(reg_all)
+
+# Points does seem to have statistically significant association with Pay
+# => for every additional job evaluation point the market pay tends to go up ~ 145$ on average
+
+# Multiple R-squared:  0.8714,	Adjusted R-squared:  0.8658 
+# => ~ 86 % of the variance/variability in Pay can be explained by Points
+
+# F-statistic: 155.8 on 1 and 23 DF,  p-value: 0.00000000001002
+# => the model fits the data significantly better than a 0-model (model with no predictors)
+```
+
+
+
+### visualize the SLR model
+
+```{r}
+surveydata %>% 
+  ggplot(aes(Points, Pay)) + 
+  geom_point() + 
+  
+  # add the model fit with geom_smooth
+  geom_smooth(method = "lm",
+              se = FALSE,
+              color = "grey") +
+  
+  # add the predictions for the observed data 
+  # (points are all on the line)
+  geom_point(aes(Points, pred),
+             color = "red",
+             data = df_SLR) + 
+  scale_y_continuous(labels = scales::dollar_format()) + 
+  labs(x = "Job Evaluation Points",
+       y = "Market Pay")
+
+# NOTE: there is some non-linearity in the data (curve)
+# => maybe polynomial model would be even better to fit the data (capture some of the curve)
+```
+
+
+
+
+## specify a polynomial model (PRM)
+
+```{r}
+# use a squared term (2)
+# you could also use a cubic term (3) if there was some change in direction...
+# NOTE: the poly()-function standardizes the variable and centers it (handle issues with co-linearity etc.)
+reg_all_poly <- lm(Pay ~ poly(Points, 2),
+                   data = surveydata)
+
+```
+
+
+### evalute the statistical assumptions of a PRM
+
+```{r}
+# create data frame for plotting
+df_PRM <- surveydata %>% 
+  gather_residuals(reg_all_poly) %>% 
+  gather_predictions(reg_all_poly) %>% 
+  mutate(resid_std = (resid - mean(resid))/sd(resid),
+         pred_std = (pred - mean(pred))/sd(pred),
+         cooks = cooks.distance(reg_all),
+         ID = 1:nrow(surveydata)) %>% 
+  relocate(ID)
+
+
+### 1. fitted values vs. residuals
+df_PRM %>% 
+  ggplot(aes(pred, resid)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  geom_hline(yintercept = 0,
+             color = "grey",
+             size = 1.5,
+             lty = 2) + 
+  geom_text(aes(label = ID),
+            vjust = 1.1,
+            hjust = 1.1) +
+  labs(title = "Residuals vs. Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals")
+
+# fits the data a bit better than before (by no means perfect, but better)
+# => we might have handled some of the non-linearity problem
+
+
+### 2. normal distribution of residuals?
+# 2.1.
+df_PRM %>% 
+  ggplot(aes(resid_std)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 12,
+                 alpha = 0.5) +
+  geom_density(fill = "red",
+               alpha = 0.25) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(df_PRM$resid_std), sd = sd(df_PRM$resid_std)),
+                color = "blue",
+                size = 1.5,
+                lty = 2)
+
+# 2.2. QQ-plot
+df_PRM %>% 
+  ggplot(aes(sample = resid_std)) +
+  stat_qq() +
+  stat_qq_line(color = "grey",
+               lty = 2,
+               size = 1.5) + 
+  labs(title = "Q-Q Plot",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals")
+
+# baseR  
+plot(reg_all, 2)
+
+# all points should be near or ideally on the line for the residuals to be normally distributed
+
+# OVERALL: looks not too bad here (about the same or a bit better as before)
+
+
+
+### 3. Cook's distance values (checking for influential outliers)
+df_PRM %>% 
+  ggplot(aes(ID, cooks)) + 
+  geom_col(alpha = 0.75) + 
+  geom_hline(yintercept = 0.16,
+             lty = 2,
+             size = 1.5,
+             color = "red") + 
+  geom_hline(yintercept = 1,
+             lty = 2,
+             size = 1.5,
+             color = "blue") +
+  labs(title = "Cook's Distance",
+       y = "Cook's Distance")
+
+# same as before
+```
+
+
+
+### interpret the PRM results
+
+```{r}
+summary(reg_all_poly)
+
+# poly(Points, 2)1   128185       5775  22.196 < 0.0000000000000002 *** => non quadratic term (significant)
+# poly(Points, 2)2    41129       5775   7.122          0.000000385 *** => quadratic term (significant)
+# => including the quadratic term improves the fit!
+# if the quadric term would not be significant we would exclude it again!
+
+# Multiple R-squared:  0.9611,	Adjusted R-squared:  0.9576 
+# => even better than before!
+
+# F-statistic: 271.7 on 2 and 22 DF,  p-value: 0.0000000000000003097
+# => the model fits the data significantly better than a 0-model (model with no predictors)
+```
+
+
+
+
+### visualize the model
+
+```{r}
+# this has to be done in multiple steps (kind of workaround, beacuse we cannot simply use geom_smoot()...)
+
+# 1. create a data frame with simulated data (name must be the same (!) as in the original data, here: Points
+sim_points <- tibble(
+  Points = seq(min(surveydata$Points),
+               max(surveydata$Points),
+               length = 1000)
+)
+
+
+# 2. predict the data using our PRM
+predicted_values <- predict(reg_all_poly,
+                            newdata = sim_points)
+
+
+# 3. combine to a data set
+sim_data <- tibble(
+  sim_points = sim_points$Points,
+  predicted_values = as.numeric(predicted_values)
+)
+
+# if someone had 300 Job Evaluation Points the predicted value would be 32409.79  etc.
+
+
+# 4. plot
+surveydata %>% 
+  ggplot(aes(Points, Pay)) + 
+  geom_point() + 
+  
+  # add the model fit with the simulated data points
+  geom_line(aes(sim_points, predicted_values), 
+            color = "grey",
+            size = 1,
+            data = sim_data) +
+  
+  # add the predictions for the observed data 
+  # (points are all on the line)
+  geom_point(aes(Points, pred),
+             color = "red",
+             data = df_PRM) + 
+  scale_y_continuous(labels = scales::dollar_format()) + 
+  labs(x = "Job Evaluation Points",
+       y = "Market Pay")
+
+# line fits better than before
+# => this is also shwon by the higher R^2 (~95%  vs. ~85%)
+```
+
+
+
+### estimate the min and max pay
+
+```{r}
+# range spread 40% (assumption!)
+
+df_PRM %>% 
+  mutate(min_pay = pred * 0.8,
+         max_pay = pred * 1.2) %>% 
+  ggplot() + 
+  geom_line(aes(Points, pred),
+            color = "red") + 
+  geom_line(aes(Points, min_pay)) + 
+  geom_line(aes(Points, max_pay)) + 
+  geom_point(aes(Points, Pay)) + 
+  scale_y_continuous(labels = scales::dollar_format()) + 
+  labs(x = "Job Evaluation Points",
+       y = "Market Pay")
+
+```
+

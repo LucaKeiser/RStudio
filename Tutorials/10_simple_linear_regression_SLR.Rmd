@@ -1,0 +1,271 @@
+---
+title: "Simple Linear Regression in R"
+author: "Luca"
+date: '2022-06-04'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/SelectionExercise.csv")
+
+surveydata
+```
+
+
+
+### simple linear regression (SLR) statistical assumptions
+
+assumptions will almost never be perfectly fulfilled
+
+```{r}
+# 0. cases are randomly sampled (cannot be tested here...)
+# 1. bivariate normal distribution
+# 2. linear association
+# 3. no bivariate outliers
+
+
+# using lessR{}
+Plot(SJT, Performance,
+     ellipse = TRUE,
+     data = surveydata)
+
+# ggplot2
+surveydata %>% 
+  ggplot(aes(SJT, Performance)) + 
+  geom_jitter(height = 0.2,
+              width = 0.2,
+              alpha = 0.5) + 
+  geom_smooth(method = "lm",
+              color = "black",
+              size = 1.5,
+              se = FALSE) +
+  stat_ellipse(geom = "polygon",
+               color = "red",
+               fill = "red",
+               alpha = 0.25,
+               size = 1.5)
+
+# positive linear association is visible
+# football-shape indicates the bivariate normal distribution
+# but there might be some potential outliers
+```
+
+
+
+
+## regression function in lessR{}
+
+```{r}
+Regression(Performance ~ SJT,
+           data = surveydata)
+
+
+# plot 1 - distribution of residuals 
+# => met assumption of normally distributed residual errors based on the distribution of residuals
+
+
+# plot 2 - residuals vs. fitted
+# => ideal the line should be on the dotted line (average residual error for each level of the outcome variable should be 0)
+# => we met assumption that residual error is 0 for each level of predictor variable
+# => met assumption of homoscedasticity of variance (equal variances across the levels of the predictor variable)
+# => there are some potential outliers visible 
+
+
+# console output - BASIC ANALYSIS 
+
+#              Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+# (Intercept)     6.939      0.512   13.552    0.000       5.932       7.947   => significant
+#         SJT     0.682      0.086    7.915    0.000       0.512       0.851   => significant
+
+# => there is a statistically significant positive linear association between SJT and Performance (NOTE: that the coefficient is not standardized!)
+# => for every one unit increase in SJT the Performance increases by 0.682 on average
+
+# => predicted_performance = 6.939 + 0.682 * SJT
+
+
+## console output - MODEL FIT
+
+# R-squared:  0.174    Adjusted R-squared:  0.171    PRESS R-squared:  0.157 
+# => ~17% of the variance/variability in Performance can be explained by SJT
+
+# F-statistic: 62.654     df: 1 and 298     p-value:  0.000 
+# => omnibus test: our model performs significantly better than a 0-model (with no predictors)
+
+
+# console output - ANALYSIS OF VARIANCE
+
+#               df    Sum Sq   Mean Sq   F-value   p-value 
+# Model          1   617.264   617.264    62.654     0.000 
+# Residuals    298  2935.866     9.852 
+# Performance  299  3553.130    11.883 
+
+# => this is getting interesting when we use multiple predictors...
+
+
+# console output - RELATIONS AMOG THE VARIABLES
+#=> correlation coefficient as effect size
+
+#               Performance  SJT 
+#   Performance        1.00 0.42 
+#           SJT        0.42 1.00 
+
+# => this is between a medium and large effect size
+
+# Correlation benckmarks:             R^2 benchmarks:
+# 0.1: small                          0.01: small
+# 0.3: medium                         0.09: small
+# 0.5: large                          0.25: small
+
+# NOTE: 0.42^2 ~ 0.17 (= R^2) in an SLR (one predictor only...)
+
+
+# console output - RESIDUALS AND INFLUENCE
+# => take a look at the predictions and Cook's distances etc.
+# => case 233 has a pretty high Cook's value compared to other cases...
+```
+
+
+### standardized regression coefficients
+
+```{r}
+Regression(Performance ~ SJT,
+           recode="z",
+           data =  surveydata)
+
+# does not seem to work (Intercept should be 0...)
+```
+
+
+
+### remove potential outlier
+```{r}
+Regression(Performance ~ SJT,
+          rows = (ID != 233),
+          data = surveydata)
+
+# case 233 has been removed
+# take a look how this affects the model (R^2 and regression coefficients)
+# model performs not as good as before...
+```
+
+
+
+
+
+
+## regression in baseR & ggplot2
+
+### specify the model
+```{r}
+reg_SLR <- lm(Performance ~ SJT,
+              data = surveydata)
+```
+
+
+### test statistical assumptions for SLR
+
+```{r}
+# create data frame for plotting
+df_SLR <- surveydata %>% 
+  gather_residuals(reg_SLR) %>% 
+  gather_predictions(reg_SLR) %>% 
+  mutate(resid_std = (resid - mean(resid))/sd(resid),
+         pred_std = (pred - mean(pred))/sd(pred),
+         cooks = cooks.distance(reg_SLR),
+         ID = 1:nrow(surveydata)) %>% 
+  relocate(ID)
+
+
+
+### 1. fitted values vs. residuals
+df_SLR %>% 
+  ggplot(aes(pred, resid)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  geom_hline(yintercept = 0,
+             color = "grey",
+             size = 1.5,
+             lty = 2) + 
+  geom_text(aes(label = ID),
+            vjust = 1.1,
+            hjust = 1.1,
+            check_overlap = TRUE) +
+  labs(title = "Residuals vs. Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals")
+
+
+### 2. normal distribution of residuals?
+# 2.1.
+df_SLR %>% 
+  ggplot(aes(resid_std)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 12,
+                 alpha = 0.5) +
+  geom_density(fill = "red",
+               alpha = 0.25) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(df_SLR$resid_std), sd = sd(df_SLR$resid_std)),
+                color = "blue",
+                size = 1.5,
+                lty = 2)
+
+# 2.2. QQ-plot
+df_SLR %>% 
+  ggplot(aes(sample = resid_std)) +
+  stat_qq() +
+  stat_qq_line(color = "grey",
+               lty = 2,
+               size = 1.5) + 
+  labs(title = "Q-Q Plot",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals")
+
+# baseR  
+plot(reg_SLR, 2)
+
+
+### 3. Cook's distance values (checking for influential outliers)
+df_SLR %>% 
+  ggplot(aes(ID, cooks)) + 
+  geom_col(alpha = 0.75) + 
+  geom_hline(yintercept = (4/nrow(surveydata)),
+             lty = 2,
+             size = 1.5,
+             color = "red") + 
+  # geom_hline(yintercept = 1,
+  #            lty = 2,
+  #            size = 1.5,
+  #            color = "blue") +
+  labs(title = "Cook's Distance",
+       y = "Cook's Distance")
+```
+
+
+### interpret the model
+
+```{r}
+summary(reg_SLR)
+```
+
+
+
+
+

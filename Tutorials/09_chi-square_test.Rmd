@@ -1,0 +1,79 @@
+---
+title: "Chi-Square Test of Independence"
+author: "Luca"
+date: '2022-06-03'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/ChiSquareTurnover.csv")
+
+surveydata
+```
+ 
+ 
+## Introduction
+
+because of the data structure (2 variables of interest) we can run an 2x2 chi-squared independence test to check if the 2 variables are independt form each other.
+
+
+### statistical assumptions
+# 1. cases must be randomly sampled form the population
+# 2. nonoccurences are included as well (here Stayed and Quit)
+
+
+
+### create a contincency table (cross-tabulation) & run the chi-sqaured test (2x2)
+
+```{r}
+table <- xtabs(~ Onboarding + Turnover,
+               data = surveydata)
+
+table
+
+# proportions instead of absolut values
+# 2 means we look at the column proportions
+prop.table(table, 2)
+
+chisq.test(table)
+
+# X-squared = 23.179, df = 1, p-value = 0.000001476
+# => very low p-value => statistically significant association betweeen the two variables
+
+
+# phi-coefficient
+# => can be interpreted the same way as a Pearson's correlation (effect size metric)
+phi(table)
+
+# phi-coefficient = 0.59 (large effect)
+```
+
+
+### examine the ovsaerved and expected values
+
+```{r}
+chisq <- chisq.test(table)
+
+chisq$observed
+# what would be the expected values, if the two variables would truely independent of each other?
+chisq$expected
+# Pearson residuals (the larger the larger the influence of the chi-squared value)
+chisq$residuals
+```
+
+
