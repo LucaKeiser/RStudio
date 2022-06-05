@@ -1,0 +1,432 @@
+---
+title: "Moderated Mulitple Linear Regression in R"
+author: "Luca"
+date: '2022-06-05'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+library(interactions)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/DiffPred.csv")
+
+surveydata
+```
+
+
+
+### grand-mean center continuous predictor or moderator variables (reduce collinearity)
+
+```{r}
+# here only interveiw and age need to be grand-mean centered
+
+surveydata <- surveydata %>% 
+  mutate(centered_interview = interview - mean(interview, na.rm = TRUE),
+         centered_age = age - mean(age, na.rm = TRUE))
+
+# means are 0 now
+surveydata %>% 
+  summary()
+```
+
+
+
+### 3-step differential prediction process (Cleary, 1968; SIOP, 2003)
+
+```{r}
+# 1. estimate the criterion-related validity (using SLR)
+# 2. intercept differences: additive multiple linear regression model (different intercepts for different classes (man vs. woman) for example)
+# => if we do not take this into account (use only MLR without interactions) our predictors are biased
+# 3. slope differences: multiplicative multiple linear regression model (different slopes for different classes for (man vs. woman) example)
+# => if we do not take this into account (use only MLR without interactions) our predictors are biased
+
+# NOTE: for this approach the statistical power should be high (big sample)
+#       it is also possible that both (the intercepts and slopes) are different for different classes 
+#       => again a common regression line would lead to biasd estimations
+```
+
+
+
+### apply this 3-step pricess to gender (dichotomous variable)
+
+```{r}
+### 1. step - criterion-related validity
+
+Regression(perf_eval ~ centered_interview, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     4.705      0.049   95.145    0.000       4.608       4.802  => significant
+# centered_interview     0.307      0.041    7.465    0.000       0.226       0.387  => significant
+
+
+# R-squared:  0.129    Adjusted R-squared:  0.127    PRESS R-squared:  0.120 
+# => interview explains ~13% of the variation/variablity in perf_eval (medium effect size)
+
+# F-statistic: 55.732     df: 1 and 375     p-value:  0.000 
+# => our model is significantly better than a 0-mode (without predictor variables)
+```
+
+
+```{r}
+### 2. step - intercept differences
+
+# gender is trasformed into a factor automatically
+Regression(perf_eval ~ centered_interview + gender, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     5.083      0.091   55.833    0.000       4.904       5.262  => signifcant
+# centered_interview     0.164      0.049    3.325    0.001       0.067       0.261  => signifcant
+#        genderwoman    -0.602      0.123   -4.889    0.000      -0.844      -0.360  => signifcant
+# => genderwoman: if you switch from man to woman perf_evaluation drop ~0.6 scores (women have a lower intercept)
+# => gender as moderator
+
+# R-squared:  0.182    Adjusted R-squared:  0.177    PRESS R-squared:  NA 
+# => this model explains the variance/variability better than before
+
+# F-statistic: 41.521     df: 2 and 374     p-value:  0.000 
+# => this model is significantly better than a 0-model
+
+
+# use the interactions{} to visualize the intercept differences
+# specify the model first
+reg_int <- lm(perf_eval ~ centered_interview + gender,
+              data = surveydata)
+
+# visualize
+probe_interaction(reg_int,
+                  pred = centered_interview,
+                  modx = gender,
+                  # reduced output
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# NOTE: slopes are the same (0.16) but the intercepts differ (both are significant)
+#       even if you have found no intercept difference you should continue with step 3 (there can still be slope differences...)
+```
+
+
+```{r}
+### 3. step - slope differences
+
+# integrate the interaction term
+# at the end we have 3 predictors: centered_interview, gender and centered_interview * gender
+Regression(perf_eval ~ centered_interview * gender,
+           data = surveydata)
+
+#                                 Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#                    (Intercept)     5.258      0.111   47.559    0.000       5.040       5.475  => significant
+#             centered_interview    -0.025      0.085   -0.291    0.771      -0.191       0.142  => not significant
+#                    genderwoman    -0.724      0.130   -5.572    0.000      -0.980      -0.469  => significant
+# centered_interview:genderwoman     0.284      0.104    2.734    0.007       0.080       0.488  => interaction term is significant
+# => gender moderates the association between interview and perf_eval
+
+# R-squared:  0.198    Adjusted R-squared:  0.191    PRESS R-squared:  NA 
+# => model fit is better
+
+# F-statistic: 30.652     df: 3 and 373     p-value:  0.000 
+# => this model is significantly better than a 0-model
+
+
+# use interactions{} to visualize the slope differences
+reg_slope<- lm(perf_eval ~ centered_interview * gender,
+                data = surveydata)
+
+# visualize
+probe_interaction(reg_slope,
+                  pred = centered_interview,
+                  modx = gender,
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# which of these slopes is significant?
+# Slope of centered_interview when gender = man: 
+# 
+#    Est.   S.E.   t val.      p
+# ------- ------ -------- ------
+#   -0.02   0.08    -0.29   0.77
+# => this slope is not statistically significant (no relationship: the interview does not predict perf_eval)
+
+# Slope of centered_interview when gender = woman: 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.26   0.06     4.32   0.00
+# => this slope is statistically significant (relationship: interview does predict perf_eval)
+
+# we have to include this in our model (otherwise the predictions are biased)
+```
+
+
+
+### apply this 3-step pricess to age (continuous variable)
+
+```{r}
+### 1. step - criterion-related validity
+
+Regression(perf_eval ~ centered_interview, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     4.705      0.049   95.145    0.000       4.608       4.802  => significant
+# centered_interview     0.307      0.041    7.465    0.000       0.226       0.387  => significant
+
+
+# R-squared:  0.129    Adjusted R-squared:  0.127    PRESS R-squared:  0.120 
+# => interview explains ~13% of the variation/variablity in perf_eval (medium effect size)
+
+# F-statistic: 55.732     df: 1 and 375     p-value:  0.000 
+# => our model is significantly better than a 0-mode (without predictor variables)
+```
+
+
+```{r}
+### 2. step - intercept differences
+
+# gender is trasformed into a factor automatically
+Regression(perf_eval ~ centered_interview + centered_age, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     4.705      0.046  102.806    0.000       4.615       4.795  => significant
+# centered_interview     0.558      0.049   11.307    0.000       0.461       0.655  => significant
+#       centered_age     0.059      0.007    7.988    0.000       0.045       0.074  => significant
+# => statistically significant positive relationship between age and perf_eval (the older a person the higher th perf_eval)
+# => age as moderator
+
+# R-squared:  0.256    Adjusted R-squared:  0.252    PRESS R-squared:  0.244 
+# => this model explains the variance/variability better than before
+
+# F-statistic: 64.442     df: 2 and 374     p-value:  0.000 
+# => this model is significantly better than a 0-model
+
+
+# use the interactions{} to visualize the intercept differences
+# specify the model first
+reg_int <- lm(perf_eval ~ centered_interview + centered_age,
+              data = surveydata)
+
+# visualize
+probe_interaction(reg_int,
+                  pred = centered_interview,
+                  modx = centered_age,
+                  # reduced output
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# NOTE: slopes are the same (0.56) but the intercepts differ (all are significant)
+#       even if you have found no intercept difference you should continue with step 3 (there can still be slope differences...)
+```
+
+
+```{r}
+### 3. step - slope differences
+
+# integrate the interaction term
+# at the end we have 3 predictors: centered_interview, centered_age and centered_interview * centered_age
+Regression(perf_eval ~ centered_interview * centered_age,
+           data = surveydata)
+
+#                                  Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#                     (Intercept)     4.795      0.051   93.404    0.000       4.694       4.896  => significant
+#              centered_interview     0.572      0.049   11.753    0.000       0.476       0.668  => significant
+#                    centered_age     0.069      0.008    8.893    0.000       0.054       0.085  => significant
+# centered_interview:centered_age     0.015      0.004    3.658    0.000       0.007       0.023  => interaction term significant
+
+# R-squared:  0.282    Adjusted R-squared:  0.276    PRESS R-squared:  0.267 
+# => model fit is better
+
+# F-statistic: 48.845     df: 3 and 373     p-value:  0.000
+# => this model is significantly better than a 0-model
+
+
+# use interactions{} to visualize the slope differences
+reg_slope<- lm(perf_eval ~ centered_interview * centered_age,
+                data = surveydata)
+
+# visualize
+probe_interaction(reg_slope,
+                  pred = centered_interview,
+                  modx = centered_age,
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# which of these slopes is significant?
+# Slope of centered_interview when centered_age = -8.029929095154546558888 (- 1 SD): 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.45   0.06     8.09   0.00
+# => least steep slope (0.45)
+# => least positive relationship
+
+# Slope of centered_interview when centered_age =  0.000000000000001243921 (Mean): 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.57   0.05    11.75   0.00
+
+ 
+# Slope of centered_interview when centered_age =  8.029929095154550111602 (+ 1 SD): 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.69   0.06    11.40   0.00
+# => steepest slope (0.69) 
+# => highest positive relationship
+
+# => all slopes are statistically significant
+# => age does moderate the association between interview and perf_eval
+```
+
+
+
+
+### apply this 3-step pricess to race (categorical variable)
+
+```{r}
+### 1. step - criterion-related validity
+
+Regression(perf_eval ~ centered_interview, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     4.705      0.049   95.145    0.000       4.608       4.802  => significant
+# centered_interview     0.307      0.041    7.465    0.000       0.226       0.387  => significant
+
+
+# R-squared:  0.129    Adjusted R-squared:  0.127    PRESS R-squared:  0.120 
+# => interview explains ~13% of the variation/variablity in perf_eval (medium effect size)
+
+# F-statistic: 55.732     df: 1 and 375     p-value:  0.000 
+# => our model is significantly better than a 0-mode (without predictor variables)
+```
+
+
+```{r}
+### 2. step - intercept differences
+
+# gender is trasformed into a factor automatically
+Regression(perf_eval ~ centered_interview + race, 
+           data = surveydata)
+
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#                     Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#        (Intercept)     4.914      0.070   69.911    0.000       4.775       5.052 
+# centered_interview     0.398      0.045    8.847    0.000       0.310       0.487 
+#          raceblack    -0.782      0.196   -3.992    0.000      -1.167      -0.397 
+#          racewhite    -0.365      0.109   -3.341    0.001      -0.580      -0.150 
+# => statistically significant positive relationship between race and perf_eval
+# => if you switch from asian to black perf_eval decreases by -0.782
+# => if you switch from asian to white perf_eval decreses by -365
+# => race as moderator
+
+# R-squared:  0.174    Adjusted R-squared:  0.168    PRESS R-squared:  NA 
+# => this model explains the variance/variability better than before
+
+# F-statistic: 26.245     df: 3 and 373     p-value:  0.000 
+# => this model is significantly better than a 0-model
+
+
+# use the interactions{} to visualize the intercept differences
+# specify the model first
+reg_int <- lm(perf_eval ~ centered_interview + race,
+              data = surveydata)
+
+# visualize
+probe_interaction(reg_int,
+                  pred = centered_interview,
+                  modx = race,
+                  # reduced output
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# NOTE: slopes are the same (0.40) but the intercepts differ (all are significant)
+#       even if you have found no intercept difference you should continue with step 3 (there can still be slope differences...)
+```
+
+
+```{r}
+### 3. step - slope differences
+
+# integrate the interaction term
+# at the end we have 3 predictors: centered_interview, race and centered_interview * race
+Regression(perf_eval ~ centered_interview * race,
+           data = surveydata)
+
+#                               Estimate    Std Err  t-value  p-value   Lower 95%   Upper 95% 
+#                  (Intercept)     4.896      0.073   66.926    0.000       4.752       5.040  => significant
+#           centered_interview     0.362      0.061    5.891    0.000       0.241       0.482  => significant
+#                    raceblack    -0.559      0.306   -1.826    0.069      -1.161       0.043  => not significant
+#                    racewhite    -0.374      0.110   -3.411    0.001      -0.590      -0.158  => significant
+# centered_interview:raceblack    -0.139      0.219   -0.636    0.525      -0.569       0.291  => interaction term is not statistically significant
+# centered_interview:racewhite     0.103      0.093    1.109    0.268      -0.080       0.286  => interaction term is not statistically significant
+
+# R-squared:  0.179    Adjusted R-squared:  0.168    PRESS R-squared:  NA 
+# => model fit is worse
+
+# F-statistic: 16.138     df: 5 and 371     p-value:  0.000 
+# => this model is significantly better than a 0-model
+
+
+######### WE COULD STOP HERE BECAUSE THE INTERACTION TERMS WERE NOT SIGNIFICANT ######### 
+
+
+# use interactions{} to visualize the slope differences
+reg_slope<- lm(perf_eval ~ centered_interview * race,
+                data = surveydata)
+
+# visualize
+probe_interaction(reg_slope,
+                  pred = centered_interview,
+                  modx = race,
+                  johnson_neyman = FALSE,
+                  x.label = "Interview Score",
+                  y.label = "Job Performance")
+
+# which of these slopes is significant?
+# Slope of centered_interview when race = white: 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.46   0.07     6.66   0.00
+# => significant
+
+# Slope of centered_interview when race = black: 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.22   0.21     1.06   0.29
+# => not significant
+ 
+# Slope of centered_interview when race = asian: 
+# 
+#   Est.   S.E.   t val.      p
+# ------ ------ -------- ------
+#   0.36   0.06     5.89   0.00
+# => significant
+```
+
+
