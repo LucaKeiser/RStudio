@@ -430,3 +430,9 @@ probe_interaction(reg_slope,
 ```
 
 
+### conclusion
+
+=> with age there are both intercept and slope differences
+=> with race there are just intercept differences
+
+
