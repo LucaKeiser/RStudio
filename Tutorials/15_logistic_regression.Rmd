@@ -1,0 +1,258 @@
+---
+title: "Logistic Regression in R"
+author: "Luca"
+date: '2022-06-06'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+library(interactions)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/Turnover.csv")
+
+surveydata
+skimr::skim(surveydata)
+
+# scale form 1 to 6
+# JS = job satisfaction
+# OC = oraganisational commitment
+# TI = turnover intention
+# NAff = negativ affectivity
+```
+
+
+
+### statistical assumptions0. 
+
+0. cases are randomly sampled
+1. data free of bivariate/multivariate outliers
+2. outcome variable is dichotomous/binary
+3. association between continous predictor and the logit transformation of the outcome variable is linear
+4. no (multi)collinearity (only needed when using a multiple logistic regression)
+
+
+### simple logistic regression model (aka logic model)
+
+```{r}
+Logit(Turnover ~ JS,
+      data = surveydata)
+
+# Number of cases (rows) of data:  99 
+# Number of cases retained for analysis:  98 
+# => 1 is missing
+
+# 0. assumption: 
+# => cannot be tested (assumption: is given)
+
+# 1. assumption: 
+# => Trunover is dichotomous/binary (0 and 1)
+
+# 2. assumption:
+#      JS Turnover fitted residual rstudent  dffits   cooks
+# 69 6.00        1 0.3162   0.6838   1.5688  0.3725 0.08496
+# 7  1.38        0 0.7775  -0.7775  -1.7682 -0.2877 0.06241
+# 73 5.48        1 0.3673   0.6327   1.4476  0.2949 0.04889
+# 58 5.43        1 0.3724   0.6276   1.4363  0.2877 0.04618
+# => fitted/residuals is a proportion
+# => Cook's distances looks okay (maybe cases with the row number 69 (EMP873) and 7 (EMP607) are potential outliers)
+
+# 3. assumption:
+# => Box-Tidwell test
+Logit(Turnover ~ JS + JS:log(JS),
+      data = surveydata,
+      brief = TRUE)
+
+#              Estimate    Std Err  z-value  p-value   Lower 95%   Upper 95%
+# (Intercept)    5.4461     3.2062    1.699    0.089     -0.8379     11.7300 
+#          JS   -2.9840     2.1693   -1.376    0.169     -7.2357      1.2677 
+#  JS:log(JS)    1.1696     0.9778    1.196    0.232     -0.7467      3.0860 => only the interaction term is of interest here
+# => interaction term is not significant 
+# => no evidence, that there is a non-linear relation
+# => if the interaction term would be significant we would have to use polynomial terms/regression (quadratic, cubic or even higher...)
+# => NOTE: if there would be 0s or negative values in JS, we would have mathematical problems (log is not defined)
+#          we would have to transfom the variable (convert the variable just for this test, such that the lowest value becomes 1)
+# => here: we have met the assumption
+```
+
+
+### interpretation of the model
+
+```{r}
+Logit(Turnover ~ JS,
+      data = surveydata)
+
+#              Estimate    Std Err  z-value  p-value   Lower 95%   Upper 95%
+# (Intercept)    1.8554     0.6883    2.695    0.007      0.5063      3.2044 
+#          JS   -0.4378     0.1958   -2.236    0.025     -0.8216     -0.0540 
+# => p-vlaue is less than 0.05
+# => JS does have a statistically siginifcant impact (negative association) on the logit transformation (!) of the outcome variable
+# => for every 1 unit increase in JS the logistic function (which determins Turnover) decreases by -0.43 units
+# => not very informative...
+# =>  generally: for people with a high JS are less likely to turnover (look at the graph as well)
+
+# Odds ratios and confidence intervals
+# 
+#              Odds Ratio   Lower 95%   Upper 95%
+# (Intercept)      6.3939      1.6591     24.6415 
+#          JS      0.6455      0.4397      0.9475 
+# => exp(1)^-0.4378 = 0.6455 (exp(1) = 2.718282 = Euler's number)
+# => OR less than 1: negative association 
+# => 1 - 0.6455 = 0.3545 = for every one unit increase in JS the odds of quitting are reduced by 35.45%
+# => 1 / 0.6455 = 1.5492 = for every one unit increase in JS the odds of staying increase by 1.5 times (150%)
+# => different perspective about the same thing...
+# => OR greater than 1: positive association
+
+# OR rules of thumb (effect size)
+# OR less than 1:         OR greater than 1:
+# small = 0.8             small = 1.2 
+# medium = 0.4            medium = 2.5
+# large = 0.2             large = 4.3
+# => here: small to medium effct size
+
+# Model Fit: Classification
+# Probability threshold for predicting : 0.5 (above 0.5 = 1, below 0.5 = 0)
+# Corresponding cutoff threshold for JS: 4.238
+# 
+#                  Baseline         Predicted 
+# ---------------------------------------------------
+#                 Total  %Tot        0      1  %Correct 
+# ---------------------------------------------------
+#            1       59  60.2       10     49     83.1 => okay
+# Turnover   0       39  39.8        8     31     20.5 => not good
+# ---------------------------------------------------
+#          Total     98                           58.2 
+# 
+# Accuracy: 58.16 => flipping a coin is 50%, so we are not very good with just one predictor
+# Sensitivity: 83.05 
+# Precision: 61.25 
+
+# removing potential outliers
+Logit(Turnover ~ JS, 
+      rows = (!ID %in% c("EMP873", "EMP607")),
+      data = surveydata)
+
+# Number of cases (rows) of data:  97 
+# Number of cases retained for analysis:  96 
+# => 1 missing and 2 dropped
+```
+
+
+
+
+
+
+### multiple logistic regression model
+
+```{r}
+Logit(Turnover ~ JS + TI + NAff, 
+      data = surveydata)
+
+# Number of cases (rows) of data:  99 
+# Number of cases retained for analysis:  95
+# => 4 missing cases
+
+# 0. assumption: 
+# => cannot be tested (assumption: is given)
+
+# 1. assumption: 
+# => Trunover is dichotomous/binary (0 and 1)
+
+# 2. assumption:
+#      JS   TI NAff Turnover  fitted residual rstudent  dffits   cooks
+# 14 4.14 4.33 3.07        0 0.93448  -0.9345  -2.4565 -0.4581 0.15185
+# 1  4.96 0.51 1.87        1 0.08371   0.9163   2.3396  0.4680 0.13427
+# 69 6.00 2.37 1.45        1 0.18699   0.8130   1.9301  0.5252 0.10092
+# 47 4.57 4.27 2.01        0 0.77499  -0.7750  -1.8127 -0.5016 0.08228
+# => fitted/residuals is a proportion
+# => Cook's distances looks okay (maybe these 4 caes are potential outliers)
+# here: we met he assumption
+
+# 3. assumption:
+# => Box-Tidwell test
+Logit(Turnover ~ JS + JS:log(JS) + TI + TI:log(TI) + NAff + NAff:log(NAff),
+      data = surveydata,
+      brief = TRUE)
+
+#                   Estimate    Std Err  z-value  p-value   Lower 95%   Upper 95%
+#      ...          ...        ...       ...      ...       ...          ...
+#     JS:log(JS)    2.0053     1.1844    1.693    0.090     -0.3160      4.3266 
+#     TI:log(TI)   -1.2101     1.5232   -0.794    0.427     -4.1956      1.7754 
+# NAff:log(NAff)    0.9559     3.5321    0.271    0.787     -5.9670      7.8788 
+# => interaction terms are not significant 
+# => no evidence, that there are a non-linear relations
+# => here: we have met the assumption
+
+# 4. assumption
+# Collinearity
+ 
+#      Tolerance       VIF
+# JS       0.885     1.129
+# TI       0.903     1.108
+# NAff     0.973     1.028
+# => 1/VIF = Tolerance
+# => Tolerance of 1: best case (there is no collinearity or correlation between the predictors)
+# => Tolerance of 0: worst csase (there is collinearity or correlation between the predictors)
+# => Tolerance < 0.2 is problematic
+# => we met the assumption
+```
+
+
+
+### interpretation of the model
+
+```{r}
+Logit(Turnover ~ JS + TI + NAff, 
+      data = surveydata)
+
+#              Estimate    Std Err  z-value  p-value   Lower 95%   Upper 95%
+# (Intercept)   -3.9286     1.8120   -2.168    0.030     -7.4800     -0.3772  => significant
+#          JS   -0.2332     0.2215   -1.053    0.293     -0.6674      0.2010  => not significant
+#          TI    0.8967     0.3166    2.832    0.005      0.2761      1.5172  => significant
+#        NAff    1.1952     0.4996    2.392    0.017      0.2160      2.1743  => significant
+# => if we control for TI and NAff, JS is no longer significant
+# => TI and NAff are both statistically signficant (positive association)
+# => if TI or NAff increase, a person is more likely to quit
+
+#              Odds Ratio   Lower 95%   Upper 95%
+# (Intercept)      0.0197      0.0006      0.6858 
+#          JS      0.7920      0.5130      1.2227 
+#          TI      2.4514      1.3180      4.5593 
+#        NAff      3.3041      1.2411      8.7963 
+# => we just focus on the significant predictors
+# => when controlling for the other predictors in the model the odds of quitting increase 2.45 times for every 1 unit increase in TI
+# => when controlling for the other predictors in the model the odds of quitting increase 3.30 times for every 1 unit increase in NAff
+
+# Model Fit: Classification
+# Probability threshold for predicting : 0.5
+# 
+#                  Baseline         Predicted 
+# ---------------------------------------------------
+#                 Total  %Tot        0      1  %Correct 
+# ---------------------------------------------------
+#            1       58  61.1        6     52     89.7 => we predict the turnovers (quitting) quite good
+# Turnover   0       37  38.9       23     14     62.2 => we predict the non-turnovers (staying) not that good
+# ---------------------------------------------------
+#          Total     95                           78.9 
+# 
+# Accuracy: 78.95 => much better than before
+# Sensitivity: 89.66 
+# Precision: 78.79 
+```
+
+
