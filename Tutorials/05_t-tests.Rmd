@@ -25,7 +25,9 @@ surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutori
 surveydata_2 <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/TrainingEvaluation_PrePostOnly.csv")
 
 surveydata
+skimr::skim(surveydata)
 surveydata_2
+skimr::skim(surveydata_2)
 ```
 
 

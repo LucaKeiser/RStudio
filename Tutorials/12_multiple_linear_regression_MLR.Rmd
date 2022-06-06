@@ -26,6 +26,7 @@ theme_set(theme_light())
 surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/SelectionExercise.csv")
 
 surveydata
+skimr::skim(surveydata)
 ```
 
 
@@ -84,7 +85,7 @@ Regression(Performance ~ SJT + EmotionalIntelligence + Proactivity,
 ### Plot 3: ScatterPlot Matrix 
 
 # => first column gives us the bivariate correlations between Performance and the predictors (bivariate associations or 0-order associations)
-# => linearity assumtion is given for each predictor
+# => linearity assumption is given for each predictor
 
 # assumption of (multi)collinearity (we want to avoid this)
 # => correlation between SJT and Proactivity is 0.24 (that is fine)

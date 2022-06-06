@@ -27,6 +27,7 @@ theme_set(theme_light())
 surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/DiffPred.csv")
 
 surveydata
+skimr::skim(surveydata)
 ```
 
 

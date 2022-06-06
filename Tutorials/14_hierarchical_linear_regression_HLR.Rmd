@@ -1,0 +1,147 @@
+---
+title: "Hierarchical Linear Regression in R"
+author: "Luca"
+date: '2022-06-06'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lessR)
+library(modelr)
+library(interactions)
+
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/PayDeterminants.csv")
+
+surveydata
+skimr::skim(surveydata)
+```
+
+
+### statistical assumptions
+
+the assumptions are the same as with a multiple linear regression
+
+0. assumption: the sample is randomly drawn
+1. linear relationship between the variable of interest and the predictor variables
+2. assumption of non-(multi)collinearity (we want to avoid (multi)collinearity)
+3. the residuals shoulb be normally distributed
+4. assumption of homoscedasticity of variance of the residuals (equal residual variances across the levels of the predictor variable)
+5. average residual error for each level of the outcome variable should be 0
+6. take a look at outliers (Cook's distance)
+
+they should be tested if you run a hierarchical linear regression (HLR) as well
+in order to save time this is not done here (we assume, that the assumptions are met...)
+
+
+
+### step/block 1:
+
+```{r}
+step1 <- lm(raise ~ educ + perf,
+            data = surveydata)
+
+# how many cases are used in the model?
+nrow(model.frame(step1))
+nrow(step1$model)
+# all
+
+
+summary(step1)
+#             Estimate Std. Error t value          Pr(>|t|)    
+# (Intercept) -0.59071    0.33450  -1.766          0.079767 .  
+# educ         0.21700    0.06016   3.607          0.000441 ***
+# perf         0.29603    0.03607   8.207 0.000000000000201 ***
+# => educ and perf are statistically significant (positive relations)
+# => when controlling for perf every 1 unit increase in educ results in an increse in raise of 0.217 on average
+# => when controlling for educ every 1 unit increase in perf results in an increse in raise of 0.296 on average
+
+# Multiple R-squared:  0.3837,	Adjusted R-squared:  0.3742 
+# => ~37% of the variance/variability of raise are explained by educ and perf
+
+# F-statistic: 40.16 on 2 and 129 DF,  p-value: 0.00000000000002752
+# => our model is significantly better than a 0-model (without any predictors)
+```
+
+
+
+### step/block 2
+
+```{r}
+step2 <- lm(raise ~ educ + perf + sex + race,
+            data = surveydata)
+
+# how many cases are used in the model?
+nrow(model.frame(step2))
+nrow(step2$model)
+# all
+
+
+summary(step2)
+#             Estimate Std. Error t value             Pr(>|t|)    
+# (Intercept) -1.22478    0.29597  -4.138     0.00006355901993 ***
+# educ         0.21890    0.04959   4.414     0.00002159553969 ***
+# perf         0.28282    0.02988   9.464 < 0.0000000000000002 ***
+# sexmale      0.16160    0.11633   1.389             0.167236 
+# raceblack    0.58704    0.14852   3.953             0.000128 ***
+# racewhite    1.18247    0.15405   7.676     0.00000000000394 ***
+# perf         0.29603    0.03607   8.207    0.000000000000201 ***
+# => all but sex are statistically significant
+# => race is dummy-coded (asian is base/reference level; first alphabetically) is done automatically
+# => black employees receive higher raise than asian employees
+# => white employees receive higher raise than asian employees
+# => race is still (after controlling for educ and perf) the raise (discrimination; implicit or explicit bias)
+
+# Multiple R-squared:  0.5923,	Adjusted R-squared:  0.5761 
+# => ~57% of the variance/variability of raise are explained by educ and perf
+
+# F-statistic: 36.61 on 5 and 126 DF,  p-value: < 0.00000000000000022
+# => our model is significantly better than a 0-model (without any predictors)
+```
+
+
+
+### model comparison (nested vs. full model)
+
+```{r}
+# this is the hierarchical step (which model fits the data significantly better?)
+anova(step1, step2)
+
+# Analysis of Variance Table
+# 
+# Model 1: raise ~ educ + perf
+# Model 2: raise ~ educ + perf + sex + race
+#   Res.Df    RSS Df Sum of Sq      F           Pr(>F)    
+# 1    129 82.541                                         
+# 2    126 54.604  3    27.936 21.488 0.00000000002637 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# => the second (full) model fits the data significantly better than the first (nested) model
+
+# => how much of a difference is there? 
+# => change of R^2 (incremental variance explained)
+summary(step2)$r.squared - summary(step1)$r.squared
+# => 0.2085752 (delta R^2)
+# => big difference (quite concerning in this context...)
+
+# R-squared rules of thumb
+# 0.01: small
+# 0.09: medum
+# 0.25: large
+```
+
+
+
