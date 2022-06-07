@@ -1,0 +1,451 @@
+---
+title: "LASSO Regression in R"
+author: "Luca"
+date: '2022-06-07'
+output: html_document
+---
+
+Check out the full tutorial by David Caughlin [here](https://www.youtube.com/watch?v=yoPGwvUzjgQ&list=PLKkRkURCtPjCJOZHskCoyJCPb8wMDs2CW&index=23)
+
+
+### load packages
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+theme_set(theme_light())
+```
+
+### load data
+
+```{r}
+surveydata <- read_csv("https://raw.githubusercontent.com/davidcaughlin/R-Tutorial-Data-Files/master/lasso.csv")
+
+surveydata
+skimr::skim(surveydata)
+```
+
+
+### introduction
+
+LASSO (Least Absolute Shrinkage and Selection Operator)
+Here we train a LASSO regression in a k-fold cross-validation framework
+
+If we have many predictors LASSSO is a good choice (in some cases several 100s or even 1000s). Goal: improve model prediction (accuracy). LASSO is really about improving our predictions (regarding accuracy for example) and not really to understand the phenomenon or the mechanism behind it. LASSO regression is also often used for explanatory analysis. 
+
+
+#### Shrinkage (2 reasons why you might use LASSO regression): 
+=> avoid overfitting the model to the training data (linear or logistic regressions tend to overfit the training data)
+=> select only the most important predictor variables (regression coefficients of the least important predictors are shrunk close to/down to 0. The predictor variable is canceled out). What are the most predictive features?
+
+#### Regularization 
+=> LASSO is a L1-regularization method (there are other regularization methods, which work more or less the same)
+=> goal: reduce variance in parameter estimates (here: regression coefficient), even if this means increasing/adding additional bias
+
+
+#### Tuning
+=> tuning parameters:
+- alpha - mixing percentage (alpha = 1, is a constant in the context of LASSO regression; no tuning in this case)
+- lambda - regularization/tuning parameter (we tune this to find an optimum)
+=> Optimize model accuracy with model parsimony (how we find this balance? => find the best lambda value (tuning)!)
+=> in this context we focus different performance metrics:
+- continuous outcome variable:
+- root mean squared error (RMSE)
+- mean squared error (MSE)
+- R-squared
+- dichotomous outcome variable: 
+- Cohen's kappa
+- classification accuracy
+
+
+#### model type selection
+=> OLS linear regression ~ linear LASSO regression
+=> (binary) logistic regression ~ logistic LASSO regression
+=> so both are possible in LASSO regression too
+
+
+#### cross-validation (in the context of tuning)
+=> k-fold cross-validation (here we do a 10-fold cross-validation)
+=> how good does our model perform using different/new data?
+
+
+#### predictive analytics (predictiv modeling) framework
+=> 80/20 random split of the data (80% training data; 20% testing data)
+
+
+#### statistical assumptions
+the same statistical assumptions as for the equivalent model
+=> here we use a linear LASSO regression (same assumptions as with an OLS linear regression)
+=> we assume, that we have met the assumptions here
+
+
+
+### partitioning the data (create training and testing data sets)
+
+```{r}
+# always set a seed
+set.seed(1234)
+
+# initial split
+initial_split <- surveydata %>% 
+  initial_split(prop = 0.80)
+
+# training
+train_df <- training(initial_split)
+
+# testing
+test_df <- testing(initial_split)
+```
+
+
+### k-fold cross-validation (10-fold cross-valiation)
+
+```{r}
+# always set a seet
+set.seed(1234)
+
+# create k-folds
+train_10folds <- vfold_cv(data = train_df, 
+                          v = 10)
+
+```
+
+
+
+### data preprocessing
+
+```{r}
+LASSO_recipe <- recipe(y ~ .,
+                       data = train_df) %>% 
+  step_naomit() %>% 
+  step_nzv(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+
+# let's take a look at the data
+train_df_baked <- LASSO_recipe %>% 
+  prep(training = train_df) %>% 
+  bake(new_data = train_df)
+
+skimr::skim(train_df_baked)
+```
+
+
+### specify model type and computational engine
+
+```{r}
+LASSO_reg <- linear_reg() %>% 
+  set_engine("glmnet") %>% 
+  set_mode("regression") %>%
+  
+  # lambda: need to find the optimum value
+  set_args(penalty = tune(),
+           
+           # alpha: in context of LASSO this is set to 1
+           mixture = 1)
+
+```
+
+
+### create tuning grid
+
+```{r}
+LASSO_grid <- grid_regular(range_set(penalty(), c(-5, 5)),
+                           levels = 500)
+```
+
+
+### create workflow
+
+```{r}
+LASSO_wflow <- workflow() %>% 
+  add_model(LASSO_reg) %>% 
+  add_recipe(LASSO_recipe)
+```
+
+
+### run (train the model)
+
+```{r}
+system.time({
+  set.seed(1234)
+  LASSO_results <- LASSO_wflow %>% 
+    tune_grid(resamples = train_10folds, 
+              grid = LASSO_grid, 
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
+              # you could also add rsq as a metric but this results in:
+              # A correlation computation is required, but `estimate` is constant 
+              # and has 0 standard deviation, resulting in a divide by 0 error
+              metrics = metric_set(rmse, rsq))
+})
+
+```
+
+
+### evaluate hyperparameter
+
+```{r}
+# LASSO regression tries to minimize the RMSE and maximize the RSQ
+autoplot(LASSO_results)
+collect_metrics(LASSO_results) %>% 
+  View()
+show_best(LASSO_results,
+          # we focus on RMSE here
+          metric = "rmse")
+```
+
+
+### finalize workflow
+
+```{r}
+LASSO_best <- select_best(x = LASSO_results, 
+                          metric = "rmse")
+
+LASSO_final_wf <- 
+  LASSO_wflow %>% 
+  finalize_workflow(LASSO_best)
+```
+
+
+### fit the training data and extract coefficients
+
+```{r}
+LASSO_final <- fit(LASSO_final_wf, train_df)
+
+LASSO_final
+
+LASSO_final %>% 
+  extract_mold()
+
+LASSO_final %>% 
+  tidy() %>% 
+  View()
+
+# LASSO regression model coefficients (parameter estimates)
+# => NOTE: some predictors are shrunk down to 0 (these predictors are excluded from the model)
+LASSO_final %>% 
+  tidy() %>% 
+  filter(estimate == 0)
+# => 15 predictors were removed
+```
+
+
+### variable importance
+
+```{r}
+LASSO_final %>% 
+  extract_fit_engine() %>% 
+  vip::vip(num_features = ncol(train_df_baked) - 1)
+```
+
+
+
+
+### Let's predict and evaluate the model on unseen data (testing data)
+
+```{r}
+LASSO_predictions <- predict(LASSO_final,
+                             new_data = test_df)
+
+LASSO_predictions <- test_df %>% 
+  bind_cols(., LASSO_predictions) %>% 
+  select(y, .pred)
+
+multi_metric <- metric_set(rmse, rsq)
+multi_metric(LASSO_predictions, truth = y, estimate = .pred)
+
+# visualize
+LASSO_predictions %>% 
+  ggplot(aes(.pred, y)) + 
+  geom_point() + 
+  geom_smooth(method = "lm",
+              se = FALSE)
+
+# correlation coefficient
+cor(LASSO_predictions)
+# cor^2 = RSQ (R^2)
+cor(LASSO_predictions$y, LASSO_predictions$.pred)^2
+```
+
+
+
+
+## compare OLS multiple linear regression to LASSO regression model
+
+
+### data preprocessing
+
+```{r}
+OLS_recipe <- recipe(y ~ .,
+                     data = train_df) %>% 
+  step_naomit() %>% 
+  step_nzv(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+
+# let's take a look at the data
+train_df_baked <- OLS_recipe %>% 
+  prep(training = train_df) %>% 
+  bake(new_data = train_df)
+
+skimr::skim(train_df_baked)
+```
+
+
+### specify model type and computational engine
+
+```{r}
+OLS_reg <- linear_reg() %>% 
+  set_engine("lm") %>% 
+  set_mode("regression")
+```
+
+
+### create workflow
+
+```{r}
+OLS_wflow <- workflow() %>% 
+  add_model(OLS_reg) %>% 
+  add_recipe(OLS_recipe)
+```
+
+
+### run ('train' the model; no parameters to tune here...)
+
+```{r}
+system.time({
+  set.seed(1234)
+  OLS_results <- OLS_wflow %>% 
+    tune_grid(resamples = train_10folds, 
+              control = control_grid(verbose = TRUE,
+                                     save_pred = TRUE),
+              metrics = metric_set(rmse, rsq))
+})
+
+```
+
+
+### evaluate 
+
+```{r}
+# we do not tune any parameters... So just one model
+OLS_results %>% 
+  collect_metrics()
+OLS_results %>% 
+  show_best(metric = "rsq")
+```
+
+
+### finalize workflow
+
+```{r}
+OLS_best <- select_best(x = OLS_results, 
+                        metric = "rsq")
+
+OLS_final_wf <- 
+  OLS_wflow %>% 
+  finalize_workflow(OLS_best)
+```
+
+
+### fit the training data and extract coefficients
+
+```{r}
+OLS_final <- fit(OLS_final_wf, train_df)
+
+OLS_final
+
+OLS_final %>% 
+  extract_mold()
+
+OLS_final %>% 
+  tidy() %>% 
+  View()
+
+# only look at the satistically significant predictors (p-value < 0.05)
+OLS_final %>% 
+  tidy() %>% 
+  filter(p.value < 0.05)
+# NOTE: there is no shrinkage in OLS
+
+OLS_final %>% 
+  extract_fit_engine()
+```
+
+
+### variable importance
+
+```{r}
+OLS_final %>% 
+  extract_fit_engine() %>% 
+  vip::vip(num_features = ncol(train_df_baked) - 1)
+```
+
+
+
+
+### Let's predict and evaluate the model on unseen data (testing data)
+
+```{r}
+OLS_predictions <- predict(OLS_final,
+                           new_data = test_df)
+
+OLS_predictions <- test_df %>% 
+  bind_cols(., OLS_predictions) %>% 
+  select(y, .pred)
+
+multi_metric <- metric_set(rmse, rsq)
+multi_metric(OLS_predictions, truth = y, estimate = .pred)
+
+# visualize
+OLS_predictions %>% 
+  ggplot(aes(.pred, y)) + 
+  geom_point() + 
+  geom_smooth(method = "lm",
+              se = FALSE)
+
+# correlation coefficient
+cor(OLS_predictions)
+# cor^2 = RSQ (R^2)
+cor(OLS_predictions$y, OLS_predictions$.pred)^2
+```
+
+
+### final model comparison
+
+```{r}
+# LASSO
+# cross-validation performance
+collect_metrics(LASSO_results) %>% 
+  group_by(.metric) %>% 
+  summarize(avg_value = mean(mean,
+                             na.rm = TRUE),
+            avg_std_err = mean(std_err,
+                               na.rm = TRUE))
+
+# performance on unseen data
+multi_metric(LASSO_predictions,
+             truth = y,
+             estimate = .pred)
+
+# OLS
+# cross-validation performance
+collect_metrics(OLS_results) %>% 
+  group_by(.metric) %>% 
+  summarize(avg_value = mean(mean,
+                             na.rm = TRUE),
+            avg_std_err = mean(std_err,
+                               na.rm = TRUE))
+# performance on unseen data
+multi_metric(OLS_predictions,
+             truth = y,
+             estimate = .pred)
+
+# => there is not much of a difference
+# => the LASSO regression seems to be a bit better (but nut much)
+# => LASSO shows true strength with more predictors
+# NOTE: the linear model performs better within the training process but is worse when new data needs to be predicted (sign of overfitting). The LASSO regression perfroms a bit better in this regard.
+```
+
+
+

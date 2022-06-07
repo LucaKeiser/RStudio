@@ -553,10 +553,9 @@ xgboost_model <- boost_tree() %>%
 
 # use grid_random instead of grid_regular (otherwise it takes too long...)
 
-glmnet_grid <- grid_regular(range_set(penalty(), c(0.1, 1)),
+glmnet_grid <- grid_regular(range_set(penalty(), c(-0.1, -1)),
                             range_set(mixture(), c(0.1, 1)),
-                            levels = 4) %>% 
-  mutate(penalty = penalty / 10)
+                            levels = 4)
 
 
 rr_grid <- grid_random(range_set(mtry(), c(4, 8)),
