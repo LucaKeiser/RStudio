@@ -83,7 +83,7 @@ Regression(Performance ~ SJT,
 
 
 # plot 2 - residuals vs. fitted
-# => ideal the line should be on the dotted line (average residual error for each level of the outcome variable should be 0)
+# => ideally the line should be on the dotted line (average residual error for each level of the outcome variable should be 0)
 # => we met assumption that residual error is 0 for each level of predictor variable
 # => met assumption of homoscedasticity of variance (equal variances across the levels of the predictor variable)
 # => there are some potential outliers visible 
@@ -121,7 +121,7 @@ Regression(Performance ~ SJT,
 
 
 # console output - RELATIONS AMOG THE VARIABLES
-#=> correlation coefficient as effect size
+# => correlation coefficient as effect size
 
 #               Performance  SJT 
 #   Performance        1.00 0.42 
@@ -129,7 +129,7 @@ Regression(Performance ~ SJT,
 
 # => this is between a medium and large effect size
 
-# Correlation benckmarks:             R^2 benchmarks:
+# Correlation benchmarks:             R^2 benchmarks:
 # 0.1: small                          0.01: small
 # 0.3: medium                         0.09: small
 # 0.5: large                          0.25: small
