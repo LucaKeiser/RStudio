@@ -120,7 +120,6 @@ ANOVA(PostTest ~ Condition,
 ### effect size (practical significance) for the group differences
 
 ```{r}
-
 # we need to subset!
 # No vs New
 cohen.d(PostTest ~ Condition,
