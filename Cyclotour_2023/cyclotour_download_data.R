@@ -5,9 +5,6 @@ library(tidyverse)
 library(RSelenium)
 library(rvest)
 library(polite)
-library(glue)
-
-theme_set(theme_minimal())
 
 
 

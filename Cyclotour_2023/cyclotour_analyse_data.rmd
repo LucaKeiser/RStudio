@@ -1,0 +1,292 @@
+---
+title: "Cyclotour 2023"
+output: 
+  html_document:
+    toc: yes
+    code_folding: show
+---
+
+#### Load Packages
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggrepel)
+library(glue)
+library(countrycode)
+library(sjPlot)
+
+# set theme and figure size
+theme_set(theme_minimal())
+knitr::opts_chunk$set(fig.width=14, 
+                      fig.height=10)
+```
+
+#### Load data
+```{r warning=FALSE, message=FALSE}
+df <- read_rds("Cyclotour_2023/cyclotour.rds") %>% 
+  mutate(age = 2023 - year_of_birth,
+         club = ifelse(team == "",
+                       "Club",
+                       "No Club")) %>% 
+  filter(age <= 100) %>% 
+  left_join(codelist %>% 
+              select(country.name.en, continent, region23, ioc),
+            by = c("country" = "ioc")) %>% 
+  relocate(start_number, name, year_of_birth, 
+           age, continent, country, "country_name" = country.name.en, 
+           "region" = region23, city, team, club, bike_type, time)
+```
+
+
+## Analyse
+
+### Descriptive statistics
+
+#### How old are the participants?
+```{r warning=FALSE, message=FALSE}
+df %>% 
+  ggplot(aes(age)) + 
+  geom_histogram(color = "white",
+                 fill = "seagreen",
+                 alpha = 0.75) + 
+  annotate(geom = "label",
+           x = 75, 
+           y = 150, 
+           label = glue("min: {min(df$age, na.rm = TRUE)}
+                        Q25: {quantile(df$age, 0.25, na.rm = TRUE)}
+                        Q50: {quantile(df$age, 0.50, na.rm = TRUE)}
+                        avg: {round(mean(df$age, na.rm = TRUE), 1)}
+                        Q75: {quantile(df$age, 0.75, na.rm = TRUE)}
+                        max: {max(df$age, na.rm = TRUE)}")) +
+  labs(title = "\nHow old are the participants?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nAge (years)",
+       y = "Count\n",
+       caption = "Outliers (age >= 100) have been removed.") + 
+  scale_x_continuous(breaks = seq(15, 80, 5))
+```
+
+#### Where did the participants come from?
+```{r warning=FALSE, message=FALSE}
+# load world map
+world_map <- map_data('world') %>% 
+  filter(region != "Antarctica")
+
+
+# create subset for country labels
+country_labels <- world_map %>% 
+  group_by(region) %>%
+  mutate(long = mean(long), lat = mean(lat)) %>% 
+  select(c("region", "long", "lat")) %>% 
+  unique()
+
+# US fix
+country_labels <- country_labels %>% 
+  mutate(long = ifelse(region == "USA",
+                       -105,
+                       long),
+         lat = ifelse(region == "USA",
+                      40,
+                      lat)) 
+
+# add longitude and latitude to data
+df <- df %>% 
+  left_join(country_labels,
+            by = c("country_name" = "region"))
+
+# map
+world_map %>% 
+  ggplot() + 
+  geom_polygon(aes(long, lat,
+                   group = group),
+               color = "grey90",
+               fill = "grey80") + 
+  geom_point(aes(long, lat,
+                 color = n,
+                 size = n),
+             data = df %>% 
+               add_count(country_name)) + 
+  geom_text_repel(aes(x = long, y = lat, 
+                      label = region),
+                  color = "black", 
+                  size = 3,
+                  max.overlaps = Inf,
+                  data = country_labels %>% 
+                    filter(region %in% df$country_name)) +
+  scale_color_gradient2(low = "blue", 
+                        mid = "orange",
+                        high = "red",
+                        midpoint = 750) +
+  scale_size(range = c(1, 8)) +
+  coord_map(projection = "mercator",
+            xlim = c(-180, 180)) +
+  labs(title = "\nWhere did the participants come from?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nLongitude",
+       y = "Latitude\n",
+       color = "Number of\nparticipants:") +
+  guides(size = "none")
+```
+
+
+### How did WE do overall?
+```{r warning=FALSE, message=FALSE}
+# 1. how did WE do overall?
+df %>% 
+  ggplot(aes(time)) +
+  geom_histogram(color = "white",
+                 fill = "seagreen",
+                 alpha = 0.75) +
+  
+  # We
+  geom_vline(xintercept = 7.038889,
+             lty = 5,
+             linewidth = 2,
+             color = "red") +
+  annotate(geom = "label",
+           x = 7.038889, 
+           y = 185, 
+           label = "Arvid\nLuca\nAndy") +
+  
+  # Top 10%
+  geom_vline(xintercept = quantile(df$time, 0.10, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time, 0.10, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 10%") +
+  
+  # Top 25%
+  geom_vline(xintercept = quantile(df$time, 0.25, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time, 0.25, 
+                        na.rm = TRUE), 
+           y = 125, 
+           label = "Top 25%") +
+  
+  # Top 50%
+  geom_vline(xintercept = quantile(df$time, 0.5, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time, 0.5, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 50%") +
+  
+  # Top 75%
+  geom_vline(xintercept = quantile(df$time, 0.75, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time, 0.75, 
+                        na.rm = TRUE), 
+           y = 125, 
+           label = "Top 75%") +
+  
+  # Top 90%
+  geom_vline(xintercept = quantile(df$time, 0.90, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time, 0.90, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 90%") +
+  
+  scale_x_continuous(breaks = seq(4, 10, 0.25)) +
+  labs(title = "\nHow did WE do overall?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nTime (hours)",
+       y = "Count\n")
+```
+
+
+### Age-Effect?
+```{r warning=FALSE, message=FALSE}
+df %>% 
+  ggplot(aes(age, time)) + 
+  geom_jitter() +
+  geom_smooth() +
+  labs(title = "\nAge-Effect?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nAge (years)",
+       y = "Time (hours)\n") +
+  scale_x_continuous(breaks = seq(15, 80, 5)) + 
+  scale_y_continuous(breaks = seq(4, 9, 1))
+```
+
+=> Maybe a tiny age-effect (the older a person the more time is needed).
+
+### Bike-Type-Effect?
+```{r warning=FALSE, message=FALSE}
+df %>% 
+  add_count(bike_type) %>% 
+  mutate(bike_type = fct_reorder(bike_type, -time),
+         bike_type = str_to_title(bike_type),
+         bike_type = glue("{bike_type} (n = {n})")) %>% 
+  ggplot(aes(bike_type, time)) + 
+  geom_boxplot(aes(fill = bike_type),
+               show.legend = FALSE) +
+  scale_y_continuous(breaks = seq(4, 10, 0.5)) +
+  coord_flip() + 
+  labs(title = "\nBike-Type-Effect?",
+       subtitle = glue("Total: {nrow(df)} Participants | Number of Observations in (...)\n"),
+       x = "",
+       y = "\nTime (hours)")
+```
+
+=> Electric bikes are the slowest. Probably because mainly older people use them.<br>
+NOTE: Not enough observations for tandem and electric bikes...
+
+### Club-Effect?
+```{r warning=FALSE, message=FALSE}
+df %>% 
+  add_count(club) %>% 
+  mutate(club = glue("{club} (n = {n})")) %>% 
+  ggplot(aes(club, time)) + 
+  geom_boxplot(aes(fill = club),
+               show.legend = FALSE) +
+  scale_y_continuous(breaks = seq(4, 10, 0.5)) +
+  coord_flip() + 
+  labs(title = "\nClub-Effect?",
+       subtitle = glue("Total: {nrow(df)} Participants | Number of Observations in (...)\n"),
+       x = "",
+       y = "\nTime (hours)")
+```
+
+=> On average people who are not in a bicycle-club are faster.
+
+
+### Linear Regression Models
+```{r warning=FALSE, message=FALSE}
+df_model <- df %>% 
+  mutate(time = time * 60,
+         club = as.factor(club),
+         bike_type = as.factor(bike_type),
+         continent = as.factor(continent))
+
+mod_1 <- lm(time ~ age, 
+            data = df_model)
+
+mod_2 <- lm(time ~ age + club,
+            data = df_model)
+
+mod_3 <- lm(time ~ age + club + bike_type,
+            data = df_model)
+
+mod_4 <- lm(time ~ age + club + bike_type + continent,
+            data = df_model)
+
+tab_model(mod_1, mod_2, mod_3, mod_4,
+          dv.labels = c("Model 1", "Model 2",
+                        "Model 3", "Model 4"))
+```
