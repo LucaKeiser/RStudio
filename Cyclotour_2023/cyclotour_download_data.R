@@ -73,3 +73,7 @@ df <- df %>%
   
 # check
 glimpse(df)
+
+# save data
+write_rds(x = df,
+          file = "Cyclotour_2023/cyclotour.rds")
