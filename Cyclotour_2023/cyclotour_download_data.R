@@ -77,3 +77,11 @@ glimpse(df)
 # save data
 write_rds(x = df,
           file = "Cyclotour_2023/cyclotour.rds")
+
+
+
+# close connection --------------------------------------------------------
+
+browser$close()
+server$stop()
+
