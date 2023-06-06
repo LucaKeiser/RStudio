@@ -167,6 +167,18 @@ df %>%
                  fill = "seagreen",
                  alpha = 0.75) +
   
+  annotate(geom = "label",
+           x = 8.75,
+           y = 175,
+           label = glue("min: {round(min(df$time, na.rm = TRUE), 2)}
+                        Q10: {round(quantile(df$time, 0.10, na.rm = TRUE), 2)}
+                        Q25: {round(quantile(df$time, 0.25, na.rm = TRUE), 2)}
+                        Q50: {round(quantile(df$time, 0.50, na.rm = TRUE), 2)}
+                        avg: {round(mean(df$time, na.rm = TRUE), 2)}
+                        Q75: {round(quantile(df$time, 0.75, na.rm = TRUE), 2)}
+                        Our Team: {round(7.038889, 2)}
+                        Q90: {round(quantile(df$time, 0.90, na.rm = TRUE), 2)}
+                        max: {round(max(df$time, na.rm = TRUE), 2)}")) + 
   # WE
   geom_vline(xintercept = 7.038889,
              lty = 5,
