@@ -5,8 +5,11 @@ output:
     toc: yes
     code_folding: show
 ---
+<br>
+<br>
 
 #### Load Packages
+
 ```{r warning=FALSE, message=FALSE}
 library(tidyverse)
 library(ggrepel)
@@ -20,13 +23,16 @@ knitr::opts_chunk$set(fig.width=14,
                       fig.height=10)
 ```
 
+<br>
+
 #### Load data
+
 ```{r warning=FALSE, message=FALSE}
 df <- read_rds("Cyclotour_2023/cyclotour.rds") %>% 
   mutate(age = 2023 - year_of_birth,
          club = ifelse(team == "",
-                       "Club",
-                       "No Club")) %>% 
+                       "No Club",
+                       "Club")) %>% 
   filter(age <= 100) %>% 
   left_join(codelist %>% 
               select(country.name.en, continent, region23, ioc),
@@ -36,18 +42,38 @@ df <- read_rds("Cyclotour_2023/cyclotour.rds") %>%
            "region" = region23, city, team, club, bike_type, time)
 ```
 
+<br>
 
-## Analyse
+## Descriptive statistics
 
-### Descriptive statistics
+### How old are the participants?
 
-#### How old are the participants?
 ```{r warning=FALSE, message=FALSE}
 df %>% 
   ggplot(aes(age)) + 
   geom_histogram(color = "white",
                  fill = "seagreen",
                  alpha = 0.75) + 
+  
+  # WE
+  geom_vline(xintercept = 28,
+             lty = 2, 
+             color = "red",
+             size = 2) + 
+  annotate(geom = "label",
+           x = 28, 
+           y = 175, 
+           label = "Andy\nArvid\nLuca") +
+  
+  # Average
+  geom_vline(xintercept = mean(df$age, na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = mean(df$age, na.rm = TRUE),
+           y = 175,
+           label = "Average") +
+  
   annotate(geom = "label",
            x = 75, 
            y = 150, 
@@ -65,9 +91,11 @@ df %>%
   scale_x_continuous(breaks = seq(15, 80, 5))
 ```
 
-#### Where did the participants come from?
+<br>
+
+### Where did the participants come from?
+
 ```{r warning=FALSE, message=FALSE}
-# load world map
 world_map <- map_data('world') %>% 
   filter(region != "Antarctica")
 
@@ -123,21 +151,23 @@ world_map %>%
        subtitle = glue("Total: {nrow(df)} Participants\n"),
        x = "\nLongitude",
        y = "Latitude\n",
-       color = "Number of\nparticipants:") +
+       color = "Number of\nparticipants:",
+       caption = "Outliers (age >= 100) have been removed.") + 
   guides(size = "none")
 ```
 
+<br>
 
 ### How did WE do overall?
+
 ```{r warning=FALSE, message=FALSE}
-# 1. how did WE do overall?
 df %>% 
   ggplot(aes(time)) +
   geom_histogram(color = "white",
                  fill = "seagreen",
                  alpha = 0.75) +
   
-  # We
+  # WE
   geom_vline(xintercept = 7.038889,
              lty = 5,
              linewidth = 2,
@@ -145,7 +175,7 @@ df %>%
   annotate(geom = "label",
            x = 7.038889, 
            y = 185, 
-           label = "Arvid\nLuca\nAndy") +
+           label = "Andy\nArvid\nLuca") +
   
   # Top 10%
   geom_vline(xintercept = quantile(df$time, 0.10, 
@@ -206,27 +236,34 @@ df %>%
   labs(title = "\nHow did WE do overall?",
        subtitle = glue("Total: {nrow(df)} Participants\n"),
        x = "\nTime (hours)",
-       y = "Count\n")
+       y = "Count\n",
+       caption = "Outliers (age >= 100) have been removed.")
 ```
 
+<br>
 
 ### Age-Effect?
+
 ```{r warning=FALSE, message=FALSE}
 df %>% 
   ggplot(aes(age, time)) + 
   geom_jitter() +
-  geom_smooth() +
+  geom_smooth(method = "lm") +
   labs(title = "\nAge-Effect?",
        subtitle = glue("Total: {nrow(df)} Participants\n"),
        x = "\nAge (years)",
-       y = "Time (hours)\n") +
+       y = "Time (hours)\n",
+       caption = "Outliers (age >= 100) have been removed.") + 
   scale_x_continuous(breaks = seq(15, 80, 5)) + 
   scale_y_continuous(breaks = seq(4, 9, 1))
 ```
 
-=> Maybe a tiny age-effect (the older a person the more time is needed).
+=> Maybe a tiny linear age-effect (the older a person the more time is needed).
+
+<br>
 
 ### Bike-Type-Effect?
+
 ```{r warning=FALSE, message=FALSE}
 df %>% 
   add_count(bike_type) %>% 
@@ -237,17 +274,21 @@ df %>%
   geom_boxplot(aes(fill = bike_type),
                show.legend = FALSE) +
   scale_y_continuous(breaks = seq(4, 10, 0.5)) +
-  coord_flip() + 
   labs(title = "\nBike-Type-Effect?",
        subtitle = glue("Total: {nrow(df)} Participants | Number of Observations in (...)\n"),
        x = "",
-       y = "\nTime (hours)")
+       y = "Time (hours)\n",
+       caption = "Outliers (age >= 100) have been removed.")
 ```
 
-=> Electric bikes are the slowest. Probably because mainly older people use them.<br>
+=> Electric bikes are the slowest. Probably because mainly older people use them.
+<br>
 NOTE: Not enough observations for tandem and electric bikes...
 
+<br>
+
 ### Club-Effect?
+
 ```{r warning=FALSE, message=FALSE}
 df %>% 
   add_count(club) %>% 
@@ -256,17 +297,22 @@ df %>%
   geom_boxplot(aes(fill = club),
                show.legend = FALSE) +
   scale_y_continuous(breaks = seq(4, 10, 0.5)) +
-  coord_flip() + 
   labs(title = "\nClub-Effect?",
        subtitle = glue("Total: {nrow(df)} Participants | Number of Observations in (...)\n"),
        x = "",
-       y = "\nTime (hours)")
+       y = "Time (hours)\n",
+       caption = "Outliers (age >= 100) have been removed.")
 ```
 
-=> On average people who are not in a bicycle-club are faster.
+=> On average people who are in a bicycle-club are faster. 
+<br>
+<br>
+But which factors are <b>statistically significant?</b> 
 
+<br>
 
-### Linear Regression Models
+## Linear Regression Models
+
 ```{r warning=FALSE, message=FALSE}
 df_model <- df %>% 
   mutate(time = time * 60,
@@ -290,3 +336,14 @@ tab_model(mod_1, mod_2, mod_3, mod_4,
           dv.labels = c("Model 1", "Model 2",
                         "Model 3", "Model 4"))
 ```
+<br>
+<b>All factors</b> are statistically significant. <b>Model 3</b> has the most explanatory power ($R^{2} adjusted$ = 0.026 ~ 2.6% of the variance can be explained by the model, which is nothing...)
+
+<b>AGE:</b> If the age of a person increases by one year, the time increases by 0.44 minutes (~26.5 seconds) on average.
+<br>
+<b>CLUB:</b> If you are in a cycling club, you are 17.5 minutes faster on average.
+<br>
+<b>BIKE TYPE:</b> With an electric bike you are on average 77.4 (85.5 minutes) slower than with a normal bike (tandem bike).
+<br>
+<br>
+<b>NOTE:</b> Not enough cases in some groups (bike type, continent). The predictions are not to be taken too seriously...
