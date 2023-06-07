@@ -160,6 +160,8 @@ world_map %>%
 
 ### How did WE do overall?
 
+#### Time
+
 ```{r warning=FALSE, message=FALSE}
 df %>% 
   ggplot(aes(time)) +
@@ -251,6 +253,62 @@ df %>%
        y = "Count\n",
        caption = "Outliers (age >= 100) have been removed.")
 ```
+
+<br>
+
+#### Average Speed
+
+```{r warning=FALSE, message=FALSE}
+df <- df %>% 
+  mutate(avg_speed = 178 / time)
+
+df %>% 
+  ggplot(aes(avg_speed)) +
+  geom_histogram(color = "white",
+                 fill = "seagreen",
+                 alpha = 0.75) +
+  
+  annotate(geom = "label",
+           x = 40,
+           y = 175,
+           label = glue("min: {round(min(df$avg_speed, na.rm = TRUE), 2)}
+                        Q10: {round(quantile(df$avg_speed, 0.10, na.rm = TRUE), 2)}
+                        Q25: {round(quantile(df$avg_speed, 0.25, na.rm = TRUE), 2)}
+                        Q50: {round(quantile(df$avg_speed, 0.50, na.rm = TRUE), 2)}
+                        avg: {round(mean(df$avg_speed, na.rm = TRUE), 2)}
+                        Q75: {round(quantile(df$avg_speed, 0.75, na.rm = TRUE), 2)}
+                        Our Team: {round(178 / 7.04, 2)}
+                        Q90: {round(quantile(df$avg_speed, 0.90, na.rm = TRUE), 2)}
+                        max: {round(max(df$avg_speed, na.rm = TRUE), 2)}")) + 
+  # WE
+  geom_vline(xintercept = 178 / 7.04,
+             lty = 5,
+             linewidth = 2,
+             color = "red") +
+  annotate(geom = "label",
+           x = 178 / 7.04, 
+           y = 185, 
+           label = "Andy\nArvid\nLuca") +
+  
+  # average
+  geom_vline(xintercept = mean(df$avg_speed, 
+                               na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = mean(df$avg_speed, 
+                    na.rm = TRUE),
+           y = 185,
+           label = "Average\n~Median") +
+  
+  scale_x_continuous(breaks = seq(15, 50, 2.5)) +
+  labs(title = "\nHow did WE do overall?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nAverage speed (km/h)",
+       y = "Count\n",
+       caption = "Outliers (age >= 100) have been removed.")
+```
+
 
 <br>
 
