@@ -860,8 +860,7 @@ mlp_reg_tune <- mlp_wflow %>%
       save_pred = TRUE
       # does not work when using parallel processing...
       # verbose = TRUE
-    )
-  )
+    ))
 
 # stop the doSNOW-cluster
 stopCluster(cl = ctemp)
@@ -895,3 +894,68 @@ final_mlp_fit <- final_mlp_wflow %>%
   fit(cells)
 # NOTE: If you did not use a workflow, finalization of a model and/or 
 #       recipe is done using finalize_model() and finalize_recipe().
+
+
+
+
+
+
+# Chapter 14 - Iterative Search -------------------------------------------
+
+# When grid search is infeasible or inefficient, iterative methods are a 
+# sensible approach for optimizing tuning parameters.
+
+
+### SVM
+svm_rec <- recipe(class ~ .,
+                  data = cells) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+
+svm_spec <- svm_rbf(cost = tune(),
+                    rbf_sigma = tune()) %>% 
+  set_engine("kernlab") %>% 
+  set_mode("classification")
+
+svm_wflow <- workflow() %>% 
+  add_model(svm_spec) %>% 
+  add_recipe(svm_rec)
+
+
+# tuning parameter
+cost()
+rbf_sigma()
+
+svm_param <- svm_wflow %>% 
+  extract_parameter_set_dials() %>% 
+  update(rbf_sigma = rbf_sigma(c(-7, -1)))
+
+svm_param %>% 
+  extract_parameter_dials("rbf_sigma")
+
+
+### 1. search procedure
+set.seed(1401)
+start_grid <- svm_param %>% 
+  update(cost = cost(c(-6, 1)),
+         rbf_sigma = rbf_sigma(c(-6, -4))) %>% 
+  grid_regular(levels = 2)
+start_grid
+
+set.seed(1402)
+svm_initial <- svm_wflow %>% 
+  tune_grid(resamples = cell_folds,
+            grid = start_grid,
+            metrics = roc_res,
+            control = control_grid(verbose = TRUE))
+svm_initial
+collect_metrics(svm_initial)
+# This initial grid shows fairly equivalent results, with no 
+# individual point much better than any of the others. These 
+# results can be ingested by the iterative tuning functions 
+# discussed in the following sections to be used as initial values.
+
+
+### 2. Baysian optimization
+
+
