@@ -1,0 +1,491 @@
+---
+title: "Advanced R"
+output: 
+  html_document: 
+    toc: yes
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+\
+\
+Advanced R - By Hadley Wickham (https://adv-r.hadley.nz/index.html)
+\
+\
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.width = 14,
+                      fig.height = 10)
+
+# same seed throughout the book
+set.seed(1014)
+```
+
+
+
+
+
+# Chapter 2 - Names and values
+
+```{r}
+# load packages
+library(lobstr)
+```
+
+
+## 2.2 Binding basics
+
+```{r}
+x <- c(1, 2, 3)
+```
+
+"Create an object named 'x', containing the values 1, 2, and 3" is unfortunately a simplification. In the background R is creating an object (in this case a vector with the values 1, 2, and 3) and it's binding that object to a name (in this case 'x'). '<-' creates a binding from the name on the left-hand side to the object on the right-hand side (in this sense, the sign '<-' is a bit counterintuitive '->' would be better). 
+=> Names as references to values.
+In the following code the value 'c(1, 2, 3)' is not being copied. Instead you get another binding to the already existing object.
+
+```{r}
+y <- x
+
+# check: same memory address
+obj_addr(x) == obj_addr(y)
+```
+
+
+### 2.2.1 Non-syntactic names
+
+```{r}
+?Reserved
+```
+
+If you want to create names that do not align with these rules you can use '``' (backticks).$
+
+
+### 2.2.2 Exercise
+
+**Q1**
+
+Explain the relationship between a, b, c and d in the following code:
+
+```{r}
+a <- 1:10
+b <- a
+c <- b
+d <- 1:10
+```
+
+=> a, b, and c refer to the same object (point to the same object). R creates multiple bindings to the same object. d has the same value 'c(1:10)' but another binding.
+ 
+```{r}
+# same memory addresss/binding
+obj_addr(a) == obj_addr(b) 
+obj_addr(a) == obj_addr(c)
+
+# different memory address/binding
+obj_addr(a) == obj_addr(d)
+```
+ 
+
+**Q2**
+
+The following code accesses the mean function in multiple ways. Do they all point to the same underlying function object? Verify this with lobstr::obj_addr().
+
+```{r }
+mean
+base::mean
+get("mean")
+evalq(mean)
+match.fun("mean")
+```
+
+=> Yes, they do:
+
+```{r}
+obj_addr(mean)
+obj_addr(get("mean"))
+obj_addr(evalq(mean))
+obj_addr(match.fun("mean"))
+```
+
+
+**Q3**
+
+By default, base R data import functions, like read.csv(), will automatically convert non-syntactic names to syntactic ones. Why might this be problematic? What option allows you to suppress this behaviour?
+
+=> By default R 'corrupts' data (names are often data). This is problematic because there is no notification of the transformation. We can use 'check.names = FALSE' to suppress this behaviour. 
+
+
+**Q4**
+
+What rules does make.names() use to convert non-syntactic names into syntactic ones?
+=> see ?make.nam
+
+
+**Q5**
+
+I slightly simplified the rules that govern syntactic names. Why is .123e1 not a syntactic name? Read ?make.names for the full details.
+=> because it's a double
+```{r}
+.123e1
+typeof(.123e1)
+```
+
+
+
+## 2.3 Copy-on-modify
+
+```{r}
+# same memory adress
+x <- c(1, 2, 3)
+y <- x
+
+
+# copy-on-modify
+y[[3]]
+y[[3]] <- 4
+
+x
+y
+
+
+# R created a new object and rebound 'y' to that new object.
+obj_addr(x)
+obj_addr(y)
+```
+
+=> copy-on-modify => R objects are unchangeable or immutable.
+
+
+### 2.3.1 tracemem()
+
+You can use tracemem() to track the copy-on-modify behaviour.
+
+```{r}
+x <- c(1, 2, 3)
+tracemem(x)
+
+y <- x
+y[[3]] <- 4L
+
+obj_addr(x)
+obj_addr(y)
+```
+
+If you modify y again, it will not be copied, because the new object only has a single name bound to it.
+
+```{r}
+y[[3]] <- 5L
+
+obj_addr(y)
+
+# trun off tracking
+untracemem(x)
+```
+
+
+### 2.3.2 Function calls
+
+The same rules for copying also apply for function calls:
+
+```{r}
+f <- function(a) {
+  a
+}
+
+x <- c(1, 2, 3)
+tracemem(x)
+
+# create new object with same values
+z <- f(x)
+# no copy here!
+
+untracemem(x)
+```
+
+Once f() completes, x and z will point to the same object. The 'original' object ('x') never gets copied because it never gets modified. If f() did modify x, R would create a new copy, and then z would bind that object.
+
+```{r}
+f <- function(a) {
+  a[[3]] <- 4
+}
+
+x <- c(1, 2, 3)
+tracemem(x)
+
+# copy-on-modify!
+z <- f(x)
+
+untracemem(x)
+```
+
+
+### 2.3.3 Lists
+
+Not just names (i.e. variables) that point to values; elements of lists do too:
+
+```{r}
+l1 <- list(1, 2, 3)
+```
+
+But lists are a bit more complex. Instead of storing the values itself, it stores references to them. This is important, when we modify a list:
+
+```{r}
+l2 <- l1
+l2[[3]] <- 4
+```
+
+Like vectors, lists use copy-on-modify behaviour; the original list is left unchanged, and R creates a modified copy. This, however, is a shallow copy: the list object and its bindings are copied, but the values pointed to by the bindings are not. The opposite of a shallow copy is a deep copy where the contents of every reference are copied.
+
+```{r}
+# shallow copy
+ref(l1, l2)
+```
+
+
+### 2.3.4 Data frames
+
+Data frames are lists of vectors. Copy-on-modify has important consequences:
+
+```{r}
+d1 <- data.frame(
+  x = c(1, 5, 6),
+  y = c(2, 4, 3)
+)
+
+# If you modify a **column**, only that column needs to be modified. The others will still point to their original references:
+d2 <- d1
+d2[,2] <- d2[,2] * 2
+
+# If you modify a **row** every columns needs to be copied:
+d3 <- d1
+d3 <- d3[1, ] * 3
+```
+
+
+### 2.3.5 Character vectors
+
+R uses a **global string pool** where each element of a character vector is a pointer to a unique string in the pool.
+
+```{r}
+x <- c("a", "a", "abc", "d")
+
+ref(x, 
+    character = TRUE)
+```
+
+
+### 2.3.6 Exercises
+
+**Q1**
+
+Why is tracemem(1:10) not useful?
+
+```{r}
+tracemem(1:10)
+```
+
+=> the object has no name. So therefore it is not very useful to track it (no copy-on-modfy possible...)
+
+
+**Q2**
+
+Explain why tracemem() shows two copies when you run this code. Hint: carefully look at the difference between this code and the code shown earlier in the section.
+
+```{r}
+x <- c(1L, 2L, 3L)
+tracemem(x)
+
+x[[3]] <- 4
+```
+
+=> because we assign a element of type double to a list of type integer. This triggers the copy-on-modify. 
+But we can easily avoid this:
+
+```{r}
+# all integer
+x <- c(1L, 2L, 3L)
+tracemem(x)
+
+x[[3]] <- 4L
+
+
+# all double
+x <- c(1, 2, 3)
+tracemem(x)
+
+x[[3]] <- 4L
+```
+
+
+**Q3**
+
+Sketch out the relationship between the following objects:
+
+```{r}
+# vector
+a <- 1:10
+# list
+b <- list(a, a)
+# list
+c <- list(b, a, 1:10)
+```
+
+memory adresses/bindings
+
+```{r}
+# 3 different memory addresses/bindings
+obj_addr(a)
+obj_addr(b)
+obj_addr(c)
+```
+
+references
+
+```{r}
+# a contains one references to the values 1:10
+ref(a)
+# b contains a list of two references to the same address as a
+ref(b)
+# c contains a list of b (containing two references to a), a (containing the same reference again) and a reference pointing to a different address containing the same value (1:10).
+ref(c)
+```
+
+
+**Q4**
+
+What happens when you run this code:
+
+```{r}
+x <- list(1:10)
+x[[2]] <- x
+```
+
+The name x binds to a list object. This object contains a reference to the integer vector 1:10.
+
+```{r}
+x <- list(1:10)
+obj_addr(x)
+ref(x)
+```
+
+Copy-on-modify takes place! x is assigned to an element of itself => the list is copied to a new address in memory
+
+```{r}
+tracemem(x)
+
+x[[2]] <- x
+obj_addr(x)
+ref(x)
+```
+
+
+
+## 2.4 Object size
+
+```{r}
+obj_size(letters)
+obj_size(LETTERS)
+
+obj_size(ggplot2::diamonds)
+```
+
+Remember: Since the elements of a list are references to values, the size of a list might be much smaller than you expect:
+
+```{r}
+x <- runif(1e6)
+obj_size(x)
+
+y <- list(x, x, x)
+obj_size(y)
+
+obj_size(x, y)
+```
+
+R only stores the first and last value of a vector (this is called ALTREP = alternative representation)
+
+```{r}
+obj_size(1:3)
+obj_size(1:1000)
+obj_size(1:1e10)
+```
+
+Similarly to strings (because of the global string pool):
+
+```{r}
+banana <- "bananas bananas bananas"
+obj_size(banana)
+
+obj_size(rep(banana, 100))
+```
+
+
+### 2.4.1 Exercises
+
+**Q1**
+
+In the following example, why are object.size(y) and obj_size(y) so radically different? Consult the documentation of object.size().
+
+```{r}
+y <- rep(list(runif(1e4)), 100)
+
+object.size(y)
+# 8'005'648 bytes
+obj_size(y)
+# = 80'900 bytes
+```
+
+=> object.size() does not account for shared elements within lists... "Sizes of objects using a compact internal representation may be over-estimated."
+
+
+**Q2**
+
+Take the following list. Why is its size somewhat misleading?
+
+```{r}
+funs <- list(mean, sd, var)
+obj_size(funs)
+```
+
+=> all these functions are already included...
+
+
+**Q3**
+
+Predict the output of the following code:
+
+```{r}
+# base size
+a <- runif(1e6)
+obj_size(a)
+
+# both lists contain references to the same memory address... No additional memory for the second list element.
+b <- list(a, a)
+obj_size(b)
+obj_size(a , b)
+
+ref(a)
+ref(b)
+
+# copy-on-modify => new address in memory for the first element. The second element still refers to the same address as a. So the combined size does not increase.
+b[[1]][[1]] <- 10
+obj_size(b)
+obj_size(a, b)
+
+ref(a)
+ref(b)
+
+# copy-on-modify => new address for the second element too! So no element points to the same address as a anymore (2 new and separated addresses in memory...)
+b[[2]][[1]] <- 10
+obj_size(b)
+obj_size(a, b)
+
+ref(a)
+ref(b)
+```
+
+
