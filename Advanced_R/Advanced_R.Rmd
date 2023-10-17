@@ -45,7 +45,7 @@ library(lobstr)
 x <- c(1, 2, 3)
 ```
 
-"Create an object named 'x', containing the values 1, 2, and 3" is unfortunately a simplification. In the background R is creating an object (in this case a vector with the values 1, 2, and 3) and it's binding that object to a name (in this case 'x'). '<-' creates a binding from the name on the left-hand side to the object on the right-hand side (in this sense, the sign '<-' is a bit counterintuitive '->' would be better). 
+"Create an object named 'x', containing the values 1, 2, and 3" is unfortunately a simplification. In the background R is creating an object (in this case a vector with the values 1, 2, and 3) and R is binding that object to a name (in this case 'x'). '<-' creates a binding from the name on the left-hand side to the object on the right-hand side (in this sense, the sign '<-' is a bit counterintuitive '->' would be better). 
 => Names as references to values.
 In the following code the value 'c(1, 2, 3)' is not being copied. Instead you get another binding to the already existing object.
 
@@ -158,7 +158,7 @@ obj_addr(x)
 obj_addr(y)
 ```
 
-=> copy-on-modify => R objects are unchangeable or immutable.
+=> copy-on-modify OR R objects are unchangeable or immutable.
 
 
 ### 2.3.1 tracemem()
@@ -261,9 +261,13 @@ d1 <- data.frame(
 d2 <- d1
 d2[,2] <- d2[,2] * 2
 
+ref(d1, d2)
+
 # If you modify a **row** every columns needs to be copied:
 d3 <- d1
 d3 <- d3[1, ] * 3
+
+ref(d1, d3)
 ```
 
 
@@ -301,9 +305,11 @@ x <- c(1L, 2L, 3L)
 tracemem(x)
 
 x[[3]] <- 4
+
+untracemem(x)
 ```
 
-=> because we assign a element of type double to a list of type integer. This triggers the copy-on-modify. 
+=> because we assign an element of type double to a list of type integer. This triggers the copy-on-modify. 
 But we can easily avoid this:
 
 ```{r}
@@ -383,6 +389,11 @@ obj_addr(x)
 ref(x)
 ```
 
+x is a list of 2: the first element contains integers (1:10). The second is a list containing integers (1:10).
+
+```{r}
+str(x)
+```
 
 
 ## 2.4 Object size
@@ -439,7 +450,13 @@ obj_size(y)
 # = 80'900 bytes
 ```
 
-=> object.size() does not account for shared elements within lists... "Sizes of objects using a compact internal representation may be over-estimated."
+=> object.size() does not account for shared elements within lists... "Sizes of objects using a compact internal representation may be over-estimated." If you take a closer look, you notice, that a lot of elements are shared...
+
+```{r}
+str(y)
+purrr::map(y, ~identical(., y[[1]]))
+```
+
 
 
 **Q2**
@@ -468,24 +485,21 @@ b <- list(a, a)
 obj_size(b)
 obj_size(a , b)
 
-ref(a)
-ref(b)
+ref(a, b)
 
-# copy-on-modify => new address in memory for the first element. The second element still refers to the same address as a. So the combined size does not increase.
+# copy-on-modify => new address in memory for the first element. The second element still refers to the same address as a. Size of b doubles (2 different elements now). The size of a and b is equal to the size of b alone, because a is part of b...
 b[[1]][[1]] <- 10
 obj_size(b)
 obj_size(a, b)
 
-ref(a)
-ref(b)
+ref(a, b)
 
-# copy-on-modify => new address for the second element too! So no element points to the same address as a anymore (2 new and separated addresses in memory...)
+# copy-on-modify => new address for the second element too! So no element points to the same address as a anymore (2 new and separated addresses in memory...). Altogether we have 3 different vectors now => 3 * 8MB = 24MB
 b[[2]][[1]] <- 10
 obj_size(b)
 obj_size(a, b)
 
-ref(a)
-ref(b)
+ref(a, b)
 ```
 
 
