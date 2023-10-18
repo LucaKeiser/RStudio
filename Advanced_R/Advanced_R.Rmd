@@ -32,6 +32,10 @@ set.seed(1014)
 
 
 # Chapter 2 - Names and values
+__________________________________________________________________________________________________
+
+**NOTE:** RStudio may give different results. Thus it is recommended to use the Rterminal instead of Rmarkdown... I use Rmarkdown only for documentation purposes.
+__________________________________________________________________________________________________
 
 ```{r}
 # load packages
@@ -80,7 +84,7 @@ d <- 1:10
 ```
 
 => a, b, and c refer to the same object (point to the same object). R creates multiple bindings to the same object. d has the same value 'c(1:10)' but another binding.
- 
+
 ```{r}
 # same memory addresss/binding
 obj_addr(a) == obj_addr(b) 
@@ -89,7 +93,7 @@ obj_addr(a) == obj_addr(c)
 # different memory address/binding
 obj_addr(a) == obj_addr(d)
 ```
- 
+
 
 **Q2**
 
@@ -503,3 +507,203 @@ ref(a, b)
 ```
 
 
+## 2.5 Modify-in-place
+
+=> Modifying an R object usually creates a copy. But there are 2 exceptions:
+
+- Objects with a single binding get a special performance optimisation.
+- Environments, a special type of object, are always modified in place.
+
+### 2.5.1 Objects with single binding
+
+```{r}
+v <- c(1, 2, 3)
+tracemem(v)
+
+v[[3]] <- 4
+```
+
+for-loops are considered slow in R. That slowness is often caused by creating a copy with every iteration of the loop.
+
+```{r}
+x <- data.frame(
+  matrix(
+    runif(5 * 1e4), 
+    ncol = 5
+  )
+)
+
+str(x)
+
+# calculate the medians for every element
+medians <- vapply(x, median, numeric(1))
+
+# substract the median from each column 
+# (more precisely: form each element in each column)
+
+start_time <- Sys.time()
+for(i in seq_along(medians)) {
+  
+  x[[i]] <- x[[i]] - medians[[i]]
+  
+}
+end_time <- Sys.time()
+glue::glue("{end_time - start_time}")
+```
+
+What is going on in the background?
+
+```{r}
+tracemem(x)
+
+for(i in seq_along(medians)) {
+  
+  x[[i]] <- x[[i]] - medians[[i]]
+  
+}
+
+untracemem(x)
+```
+
+Each iteration copies the data frame twice (**NOTE:** Hadley speaks of three times. I was not able to reproduce that(not within Rmarkdown or the Rterminal...).)
+
+
+### 2.5.2 Environments
+
+Environments are always modified-in-place. This property is sometimes described as **reference semantics** because when you modify an environment all existing bindings to that environment continue to have the same reference.
+
+```{r}
+e1 <- rlang::env(a = 1, b = 2, c = 3)
+e2 <- e1
+```
+
+If we change a binding, the environment is modified in place:
+
+```{r}
+e1$c <- 4
+e1$c
+
+e2$c
+```
+
+Environments can contain themselves (unique property of environments)
+
+```{r}
+e <- rlang::env()
+e$self <- e
+
+ref(e)
+```
+
+
+### 2.5.3 Exercises
+
+**Q1**
+
+Explain why the following code doesn’t create a circular list.
+
+```{r}
+x <- list()
+x[[1]] <- x
+```
+
+Here copy-on-modify prevents the creation of a circular list.
+
+```{r}
+x <- list()
+obj_addr(x)
+
+tracemem(x)
+# copy-on-modify
+x[[1]] <- x
+
+# new memory address of the copied object
+obj_addr(x)
+# old memory address
+obj_addr(x[[1]])
+```
+
+
+**Q2**
+
+Wrap the two methods for subtracting medians into two functions, then use the bench package to carefully compare their speeds. How does performance change as the number of columns increase?
+
+```{r}
+# create random data frame generator
+create_random_df <- function(nrow, ncol) {
+  random_matrix <- matrix(runif(nrow * ncol), nrow = nrow)
+  as.data.frame(random_matrix)
+}
+
+create_random_df(2, 2)
+```
+
+```{r}
+# create two different approaches to subtract medians
+
+### 1) same for-loop as above...
+subtract_df <- function(x, medians) {
+  
+  for (i in seq_along(medians)) {
+    x[[i]] <- x[[i]] - medians[[i]]
+  }
+  x
+  
+}
+
+### 2) different approach
+subtract_list <- function(x, medians) {
+  x <- as.list(x)
+  x <- subtract_df(x, medians)
+  list2DF(x)
+}
+```
+
+```{r}
+# create median function
+benchmark_medians <- function(ncol) {
+  df <- create_random_df(nrow = 1e4, ncol = ncol)
+  medians <- vapply(df, median, numeric(1), USE.NAMES = FALSE)
+
+  bench::mark(
+    "data frame" = subtract_df(df, medians),
+    "list" = subtract_list(df, medians),
+    time_unit = "ms"
+  )
+}
+
+benchmark_medians(1)
+```
+
+Test!
+
+```{r}
+results <- bench::press(
+  ncol = c(1, 10, 50, 100, 250, 300, 400, 500, 750, 1000),
+  benchmark_medians(ncol)
+)
+
+library(ggplot2)
+library(magrittr)
+
+
+ggplot(
+  results,
+  aes(ncol, median, col = attr(expression, "description"))
+) +
+  geom_point(size = 2) +
+  geom_smooth() +
+  labs(
+    x = "Number of Columns",
+    y = "Execution Time (ms)",
+    colour = "Data Structure"
+  ) +
+  theme(legend.position = "top")
+```
+
+
+**Q3**
+
+What happens if you attempt to use tracemem() on an environment?
+
+=> not very meaningful => environments are always modified-in-place!
