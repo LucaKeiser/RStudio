@@ -5,6 +5,8 @@ library(tidyverse)
 library(rsample)
 library(glue)
 
+theme_set(theme_minimal())
+
 set.seed(1234)
 df_original <- tibble(
   variable_of_interest = rnorm(n = 1000, 
@@ -29,7 +31,7 @@ df_temp %>%
   ggplot(aes(mean_value, factor(n_obs))) + 
   geom_label(x = 5.75, y = 10,
              size = 5,
-             label = glue("Stichprobenmittelwert: {round(mean(df_temp$mean_value), 2)}")) + 
+             label = glue("Calculated cample mean: {round(mean(df_temp$mean_value), 2)}")) + 
   geom_point(aes(color = factor(n_obs)),
              size = 3) + 
   geom_errorbarh(aes(xmin = conf_low,
@@ -39,7 +41,9 @@ df_temp %>%
                  height = 0.5) +
   expand_limits(x = c(4, 6)) +
   theme(legend.position = "none") + 
-  scale_x_continuous(breaks = seq(4, 6, 0.25))
+  scale_x_continuous(breaks = seq(4, 6, 0.25)) +
+  labs(x = "\nCalculated sample mean and 95% confidence interval\n",
+       y = "\nSample size (number of observations)\n")
 
 
 ## bootstraps -------------------------------------------------------------
@@ -83,6 +87,8 @@ tibble(
                  height = 0.5) +
   expand_limits(x = c(4, 6)) +
   theme(legend.position = "none") +
-  scale_x_continuous(breaks = seq(4, 6, 0.25))
+  scale_x_continuous(breaks = seq(4, 6, 0.25)) +
+  labs(x = "\nCalculated sample mean and bootstrapped intervals\n",
+       y = "\nNumber of bootstrap runs\n")
 
 
