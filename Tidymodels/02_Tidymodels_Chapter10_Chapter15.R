@@ -370,16 +370,28 @@ basic_rec <- recipe(sale_price ~ neighborhood + gr_liv_area + year_built +
              threshold = 0.01) %>% 
   step_dummy(all_nominal_predictors())
 
+basic_rec %>% 
+  prep() %>% 
+  juice()
+
 
 ### 2
 interaction_rec <- basic_rec %>% 
   step_interact(~ gr_liv_area:starts_with("bldg_type_"))
+
+interaction_rec %>% 
+  prep() %>% 
+  juice()
 
 
 ### 3
 spline_rec <- interaction_rec %>% 
   step_ns(latitude, longitude,
           deg_free = 20)
+
+spline_rec %>% 
+  prep() %>% 
+  juice()
 
 
 ### set up for model comparison (create preprocessing objects
@@ -400,6 +412,7 @@ lm_models <- lm_models %>%
                resamples = ames_folds,
                control = keep_pred)
 lm_models
+
 collect_metrics(lm_models) %>% 
   filter(.metric == "rmse")
 
@@ -419,13 +432,18 @@ four_models %>%
             vjust = -1,
             hjust = -0.1) +
   expand_limits(x = c(1, 4.5)) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  coord_flip() +
+  labs(x = "",
+       y = expression(paste(R^{2}, " statistics")),
+       color = "")
 
 
 ## comparing resampled performance statistics -----------------------------
 rsq_indiv_estimates <- collect_metrics(four_models,
                                        summarize = FALSE) %>% 
   filter(.metric == "rsq")
+
 rsq_indiv_estimates
 
 rsq_wider <- rsq_indiv_estimates %>% 
@@ -487,6 +505,8 @@ rsq_wider %>%
 # between two compared groups) would be equal to or more extreme than its observed value.”
 # - Wassertein & Lazar 2016
 
+# => the collection of spline terms for longitude and latitude do appear to have an effect. 
+
 
 ## Bayesian methods -------------------------------------------------------
 ### a random intercept model
@@ -524,6 +544,9 @@ model_post %>%
   facet_wrap(~ model,
              ncol = 1) +
   labs(title = "Posterior distribution for the coefficient of determiniation")
+# These histograms describe the estimated probability distributions of the mean R2 
+# value for each model. There is some overlap, especially for the three linear models.
+
 # OR
 rsq_anova %>% 
   autoplot() + 
@@ -584,6 +607,11 @@ rsq_anova %>%
   theme(legend.position = "none")
 # none of the linear models comes close to the random forest model when a 2% 
 # practical effect size is used.
+
+# NOTE: More resamples increases the precision of the overall resampling estimate; 
+#       that precision propagates to this type of analysis. However at some point
+#       the there are diminishing returns... The "right" number of resamples depends
+#       on the data set as well.
 
 
 
