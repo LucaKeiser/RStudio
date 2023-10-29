@@ -285,6 +285,14 @@ parallel::detectCores(logical = FALSE)
 # number of all available cores
 parallel::detectCores()
 
+# NOTE: The numbers usable cores is limited to the number of used resamples:
+#       "Since there were only five resamples, the number of cores used when 
+#       parallel_over = "resamples" (= default) is limited to five."
+#       You can use parallel_over = "everything" to change this behaviour. 
+#       But this might have other downsides. Usually parallel_over = "resamples"
+#       is a good/the better option.
+#       => see chapter 13.5. Tools for Efficient Grid Search
+
 
 # library(doParallel)
 # cl <- makeCluster(8)
@@ -652,6 +660,7 @@ ames_test <- testing(ames_split)
 # The solution for detecting when a model is overemphasizing the training 
 # set is using out-of-sample data.
 
+### define neural network (with tuning parameter)
 neural_net_spec <- mlp(hidden_units = tune()) %>% 
   set_engine("keras") %>% 
   set_mode("regression")
@@ -659,7 +668,7 @@ neural_net_spec <- mlp(hidden_units = tune()) %>%
 extract_parameter_set_dials(neural_net_spec)
 
 
-### create recipe
+### create recipe (with tuning parameters)
 ames_rec <- recipe(sale_price ~ neighborhood + gr_liv_area + year_built +
                      bldg_type + longitude + latitude,
                    data = ames_train) %>% 
@@ -891,13 +900,21 @@ mlp_wflow %>%
   extract_parameter_set_dials() %>% 
   extract_parameter_dials("num_comp")
 
-# after
+# update
 mlp_param <- mlp_wflow %>% 
   extract_parameter_set_dials() %>% 
   update(
     epochs = epochs(c(50, 200)),
     num_comp = num_comp(c(0, 40))
   )
+
+# after
+mlp_param %>% 
+  extract_parameter_dials("epochs")
+
+mlp_param %>% 
+  extract_parameter_dials("num_comp")
+
 
 
 ### create grid and evaluate
@@ -925,20 +942,19 @@ stopCluster(cl = ctemp)
 
 autoplot(mlp_reg_tune)
 mlp_reg_tune %>% 
-  show_best() %>% 
-  select(-.estimator)
+  show_best()
 # NOTE: tune_grid() does not fit a final model. We have to select
 #       the model parameters first.
 
 # select_best()
-mlp_reg_tune %>% 
+logistic_param <- mlp_reg_tune %>% 
   select_best(metric = "roc_auc")
 
 # manually
 logistic_param <- tibble(
   num_comp = 0,
-  epochs = 125,
-  hidden_units = 1,
+  epochs = 200,
+  hidden_units = 5,
   penalty = 1
 )
 
@@ -954,11 +970,50 @@ final_mlp_fit <- final_mlp_wflow %>%
 #       recipe is done using finalize_model() and finalize_recipe().
 
 
+## racing methods ---------------------------------------------------------
+
+# Using racing methods can speed-up the search. Only good enough models
+# or combinations/configurations of different tuning-parameters are kept.
+# => interim analysis techniques
+
+library(finetune)
+
+set.seed(1308)
+mlp_sfd_race <-
+  mlp_wflow %>%
+  tune_race_anova(
+    cell_folds,
+    grid = 20,
+    param_info = mlp_param,
+    metrics = roc_res,
+    control = control_race(verbose_elim = TRUE)
+  )
+
+show_best(mlp_sfd_race, n = 10)
+
+
+
+
+
+# CLEAN UP FIRST ----------------------------------------------------------
+rm(list = ls())
+.rs.restartR()
+
 
 
 
 
 # Chapter 14 - Iterative Search -------------------------------------------
+
+library(tidymodels)
+
+data(cells)
+cells <- cells %>% select(-case)
+
+set.seed(1304)
+cell_folds <- vfold_cv(cells)
+
+roc_res <- metric_set(roc_auc)
 
 # When grid search is infeasible or inefficient, iterative methods are a 
 # sensible approach for optimizing tuning parameters.
