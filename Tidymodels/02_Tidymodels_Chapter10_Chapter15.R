@@ -1005,6 +1005,10 @@ rm(list = ls())
 
 # Chapter 14 - Iterative Search -------------------------------------------
 
+# When grid search is infeasible or inefficient, iterative methods are a 
+# sensible approach for optimizing tuning parameters.
+
+### Setup
 library(tidymodels)
 
 data(cells)
@@ -1015,11 +1019,11 @@ cell_folds <- vfold_cv(cells)
 
 roc_res <- metric_set(roc_auc)
 
-# When grid search is infeasible or inefficient, iterative methods are a 
-# sensible approach for optimizing tuning parameters.
-
 
 ### SVM
+# NOTE: The SVM model uses a dot product and, for this reason, 
+#       it is necessary to center and scale the predictors. 
+
 svm_rec <- recipe(class ~ .,
                   data = cells) %>% 
   step_YeoJohnson(all_numeric_predictors()) %>% 
@@ -1048,6 +1052,10 @@ svm_param %>%
 
 
 ### 1. search procedure
+svm_param <- svm_wflow %>% 
+  extract_parameter_set_dials() %>% 
+  update(rbf_sigma = rbf_sigma(c(-7, -1)))
+
 set.seed(1401)
 start_grid <- svm_param %>% 
   update(cost = cost(c(-6, 1)),
@@ -1065,10 +1073,12 @@ svm_initial
 collect_metrics(svm_initial)
 # This initial grid shows fairly equivalent results, with no 
 # individual point much better than any of the others. These 
-# results can be ingested by the iterative tuning functions 
-# discussed in the following sections to be used as initial values.
+# results can be ingested by the iterative tuning functions.
 
 
 ### 2. Baysian optimization
+
+## Gaussian process model
+
 
 
