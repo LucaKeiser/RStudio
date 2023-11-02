@@ -1,0 +1,90 @@
+---
+title: "SQL within RStudio"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Write and run SQL queries in RStudio
+
+### Setup
+
+```{r}
+# load packages
+library(RSQL)
+library(RSQLite)
+library(tidyverse)
+
+# load data
+data("population")
+data("who")
+
+# create database (in memory)
+con <- dbConnect(drv = RSQLite::SQLite(),
+                 dbname = ":memory:")
+
+dbListTables(con)
+
+# add data to database
+dbWriteTable(conn = con,
+             value = population,
+             name = "population")
+
+dbWriteTable(conn = con,
+             value = who,
+             name = "who")
+
+dbListTables(con)
+
+# take a look
+tbl(src = con,
+    "who")
+tbl(src = con,
+    "population")
+
+# clean up
+rm(population, who)
+```
+
+
+### Make some SQL-queries
+
+#### 1. option
+
+```{r}
+results_1 <- DBI::dbGetQuery(
+  conn = con,
+  statement = 
+  "
+  SELECT who.country, who.year, who.new_sp_m2534, population.population
+  FROM who
+  LEFT JOIN population 
+  ON population.country = who.country 
+  AND population.year = who.year
+  WHERE who.country IN ('Brazil', 'Germany')
+  AND who.year >= 2000 
+  AND who.year <= 2010
+  ") %>% 
+  as_tibble()
+
+results_1
+```
+
+
+#### 2. option
+
+```{r}
+results_2 <- tbl(src = con, "who") %>% 
+  select(country, year, new_sp_m2534) %>% 
+  filter(country %in% c("Brazil", "Germany"),
+         between(year, 2000, 2010)) %>% 
+  left_join(y = tbl(src = con, "population"),
+            by = c("country", "year")) %>% 
+  collect()
+```
+
+### Check
+```{r}
+waldo:::compare(results_1, results_2)
+```
+
