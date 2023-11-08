@@ -1010,6 +1010,7 @@ rm(list = ls())
 
 ### Setup
 library(tidymodels)
+library(finetune)
 
 data(cells)
 cells <- cells %>% select(-case)
@@ -1076,9 +1077,89 @@ collect_metrics(svm_initial)
 # results can be ingested by the iterative tuning functions.
 
 
-### 2. Baysian optimization
+### 2. Bayesian optimization
 
 ## Gaussian process model
 
+# Bayesian optimization is an iterative process: Based on 
+# the initial grid of four results, the GP model is fit, 
+# candidates are predicted, and a fifth tuning parameter 
+# combination is selected. We compute performance estimates 
+# for the new configuration, the GP is refit with the five 
+# existing results (and so on). The goal is to to choose
+# the next tuning parameter combination that is most likely
+# to have "better results" than the current best.
 
 
+### 2.1. Acquisition functions
+
+# candidate 	mean 	variance
+#         A 	0.90 	0.000400
+#         B 	0.89 	0.000025 
+
+# Which candidate should we choose? A or B? Choosing option 
+# A is riskier but has potentially higher return. A class of 
+# objective functions, called acquisition functions, facilitate 
+# the trade-off between mean and variance.
+# There are two strategies: Exploration and exploitation (see chapter
+# for more details...)
+
+### 2.2. The tune_bayes() function
+
+ctrl <- control_bayes(verbose = TRUE)
+
+
+set.seed(1403)
+svm_bo <- svm_wflow %>% 
+  tune_bayes(resamples = cell_folds,
+             metrics = roc_res,
+             initial = svm_initial,
+             param_info = svm_param,
+             iter = 25,
+             control = ctrl)
+
+show_best(svm_bo)
+autoplot(svm_bo,
+         type = "performance")
+
+# compare to initial values
+show_best(svm_initial)
+
+
+
+### 3. Simulated annealing
+
+## 3.1. The tune_sim_anneal() function
+
+ctrl_sa <- control_sim_anneal(verbose = TRUE,
+                              no_improve = 10L)
+
+set.seed(1404)
+svm_sa <- svm_wflow %>% 
+  tune_sim_anneal(resamples = cell_folds,
+                  metrics = roc_res,
+                  initial = svm_initial,
+                  param_info = svm_param,
+                  iter = 50,
+                  control = ctrl_sa)
+
+show_best(svm_sa)
+autoplot(svm_sa,
+         type = "performance")
+autoplot(svm_sa,
+         type = "parameters")
+
+
+
+# copare all results
+show_best(svm_initial) %>% 
+  mutate(type = "tune_grid") %>% 
+  bind_rows(show_best(svm_bo) %>% 
+              mutate(type = "tune_bayes")) %>% 
+  bind_rows(show_best(svm_sa) %>% 
+              mutate(type = "tune_sim_anneal")) %>% 
+  mutate(type = fct_reorder(type, -mean)) %>% 
+  ggplot(aes(mean, type)) + 
+  geom_col(position = "dodge2") + 
+  coord_cartesian(xlim = c(0.85, 0.9)) + 
+  labs(caption = "X-axis is displayed shortened.")
