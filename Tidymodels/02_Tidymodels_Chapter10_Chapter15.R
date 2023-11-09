@@ -1477,3 +1477,40 @@ matched_results %>%
   labs(x = "Compete Grid RMSE",
        y = "Racing RMSE")
 
+
+## 8. finalizing a model
+best_results <- race_results %>% 
+  extract_workflow_set_result("boosting") %>% 
+  select_best(metric = "rmse")
+
+best_results
+
+boosting_test_results <- race_results %>% 
+  extract_workflow("boosting") %>% 
+  finalize_workflow(best_results) %>% 
+  last_fit(split = concrete_split)
+
+boosting_test_results %>% 
+  collect_metrics()
+
+# plot
+result_metrics <- boosting_test_results %>% 
+  collect_metrics() %>% 
+  pull(.estimate)
+
+
+boosting_test_results %>% 
+  collect_predictions() %>% 
+  ggplot(aes(x = compressive_strength,
+             y = .pred)) + 
+  geom_point(alpha = 0.5) +
+  geom_abline(linewidth = 2,
+              color = "red") +
+  annotate(geom = "label",
+           label = glue::glue("RMSE: {round(result_metrics[1], 2)}
+                              RSQ: {round(result_metrics[2], 2)}"),
+           x = 20,
+           y = 60) + 
+  coord_obs_pred() +
+  labs(x = "observed",
+       y = "predicted")
