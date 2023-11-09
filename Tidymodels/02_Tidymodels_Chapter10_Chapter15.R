@@ -1011,6 +1011,7 @@ rm(list = ls())
 ### Setup
 library(tidymodels)
 library(finetune)
+theme_set(theme_minimal())
 
 data(cells)
 cells <- cells %>% select(-case)
@@ -1163,3 +1164,316 @@ show_best(svm_initial) %>%
   geom_col(position = "dodge2") + 
   coord_cartesian(xlim = c(0.85, 0.9)) + 
   labs(caption = "X-axis is displayed shortened.")
+
+
+
+
+
+# CLEAN UP FIRST ----------------------------------------------------------
+rm(list = ls())
+.rs.restartR()
+
+
+
+
+
+# Chapter 15 - Screening Many Models --------------------------------------
+
+### Modeling concrete mixture strength
+
+## 1. packages
+library(tidymodels)
+theme_set(theme_minimal())
+
+
+## 2. data
+data("concrete",
+     package = "modeldata")
+
+glimpse(concrete)
+
+# get rid of multiple testing entries (they might inflate the performance
+# metrics)
+concrete <- concrete %>% 
+  group_by(across(-compressive_strength)) %>% 
+  summarise(compressive_strength = mean(compressive_strength),
+            .groups = "drop")
+
+
+## 3. create training and testing sets
+set.seed(1501)
+concrete_split <- initial_split(concrete,
+                                strata = "compressive_strength")
+concrete_train <- training(concrete_split)
+concrete_test <- testing(concrete_split)
+
+set.seed(1502)
+concrete_folds <- vfold_cv(concrete_train,
+                           strata = "compressive_strength",
+                           repeats = 5,
+                           v = 5)
+
+# create recipes
+# NOTE: Some models (notably neural networks, KNN, and support vector machines) 
+#       require predictors that have been centered and scaled, so some model 
+#       workflows will require recipes with these preprocessing steps. For other 
+#       models, a traditional response surface design model expansion (i.e., 
+#       quadratic and two-way interactions) is a good idea. For these purposes, 
+#       we create two recipes:
+
+normalized_recipe <- recipe(compressive_strength ~ .,
+                            data = concrete_train) %>% 
+  step_normalize(all_predictors())
+
+poly_recipe <- normalized_recipe %>% 
+  step_poly(all_predictors()) %>% 
+  step_interact(~ all_predictors():all_predictors())
+
+
+## 4. define models
+
+library(rules)
+library(baguette)
+
+# 4.1.
+linear_reg_spec <- linear_reg(penalty = tune(),
+                              mixture = tune()) %>% 
+  set_engine("glmnet")
+
+# 4.2.
+nnet_spec <- mlp(hidden_units = tune(),
+                 penalty = tune(),
+                 epochs = tune()) %>% 
+  set_engine("nnet",
+             MaxNWts = 2600) %>% 
+  set_mode("regression")
+
+nnet_param <- nnet_spec %>% 
+  extract_parameter_set_dials() %>% 
+  update(hidden_units = hidden_units(c(1, 27)))
+
+
+# 4.3.
+mars_spec <- mars(prod_degree = tune()) %>% 
+  set_engine("earth") %>% 
+  set_mode("regression")
+
+# 4.4.
+svm_r_spec <- svm_rbf(cost = tune(),
+                      rbf_sigma = tune()) %>% 
+  set_engine("kernlab") %>% 
+  set_mode("regression")
+
+# 4.5. 
+svm_p_spec <- svm_poly(cost = tune(),
+                       degree = tune()) %>% 
+  set_engine("kernlab") %>% 
+  set_mode("regression")
+
+# 4.6. 
+knn_spec <- nearest_neighbor(neighbors = tune(),
+                             dist_power = tune(),
+                             weight_func = tune()) %>% 
+  set_engine("kknn") %>% 
+  set_mode("regression")
+
+# 4.7.
+cart_spec <- decision_tree(cost_complexity = tune(),
+                           min_n = tune()) %>% 
+  set_engine("rpart") %>% 
+  set_mode("regression")
+
+# 4.8.
+bag_cart_spec <- bag_tree() %>% 
+  set_engine("rpart",
+             times = 50L) %>% 
+  set_mode("regression")
+
+# 4.9.
+rf_spec <- rand_forest(mtry = tune(),
+                       min_n = tune(),
+                       trees = 1000) %>% 
+  set_engine("ranger") %>% 
+  set_mode("regression")
+
+# 4.10.
+xgb_spec <- boost_tree(tree_depth = tune(),
+                       learn_rate = tune(),
+                       loss_reduction = tune(),
+                       min_n = tune(),
+                       sample_size = tune(),
+                       trees = tune()) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("regression")
+
+# 4.11.
+cubist_spec <- cubist_rules(committees = tune(),
+                            neighbors = tune()) %>% 
+  set_engine("Cubist")
+
+
+## 5. creating the workflow set
+
+# How can we match these models to their recipes, tune them, then 
+# evaluate their performance efficiently? A workflow set offers 
+# a solution.
+
+# 1. normalized models
+normalized <- workflow_set(preproc = list(normalized = normalized_recipe),
+                           models = list(SVM_radial = svm_r_spec,
+                                         SVM_poly = svm_p_spec,
+                                         KNN = knn_spec,
+                                         neural_network = nnet_spec))
+
+normalized
+normalized %>% 
+  extract_workflow(id = "normalized_KNN")
+
+# add an option (nnet_param for the neural network)
+normalized <- normalized %>% 
+  option_add(param_info = nnet_param,
+             id  = "normalized_neural_network")
+
+# 2. models without preprocessing (using dplyr-selectors...)
+model_vars <- workflow_variables(outcomes = compressive_strength,
+                                 predictors = everything())
+
+no_pre_proc <- workflow_set(preproc = list(simple = model_vars),
+                            models = list(MARS = mars_spec,
+                                          CART = cart_spec,
+                                          CART_bagged = bag_cart_spec,
+                                          RF = rf_spec,
+                                          boosting = xgb_spec,
+                                          Cubist = cubist_spec))
+no_pre_proc
+
+# 3. models with nonlinear terms and interactions
+with_features <- workflow_set(preproc = list(full_squad = poly_recipe),
+                              models = list(linear_reg = linear_reg_spec,
+                                            KNN = knn_spec))
+
+
+## 5.2. combine all workflow sets
+
+all_workflows <- bind_rows(no_pre_proc,
+                           normalized,
+                           with_features) %>% 
+  mutate(wflow_id = stringr:::str_remove(wflow_id,
+                                         "(simple_)|(normalized_)"))
+all_workflows
+
+
+## 6. tuning and evaluating the models
+
+grid_cntrl <- control_grid(save_pred = TRUE,
+                           parallel_over = "everything",
+                           save_workflow = TRUE,
+                           verbose = TRUE)
+
+# NOTE: this takes a while to run...
+# 5 folds, 5 repeats, 12 models, grid-size = 10 
+# => 3000 models need to be evaluated (is that right?)
+grid_results <- all_workflows %>% 
+  workflow_map(seed = 1503,
+               resamples = concrete_folds,
+               grid = 10,
+               control = grid_cntrl)
+
+# take a look at the results
+grid_results %>% 
+  rank_results(select_best = TRUE) %>% 
+  filter(.metric == "rmse") %>% 
+  select(model, 
+         .config, 
+         rmse = mean, 
+         rank)
+
+autoplot(grid_results,
+         rank_metric = "rmse",
+         metric = "rmse",
+         select_best = TRUE) +
+  geom_text(aes(y = mean,
+                label = wflow_id),
+            angle = 90,
+            vjust = -1,
+            hjust = 1) +
+  lims(y = c(3.5, 9.5)) + 
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks = seq(1, 12, 2))
+
+# ...at a specific model
+autoplot(grid_results,
+         id = "boosting",
+         metric = "rmse")
+
+
+## 7. efficiently screening models
+
+library(finetune)
+
+race_ctrl <- control_race(save_pred = TRUE,
+                          parallel_over = "everything",
+                          save_workflow = TRUE,
+                          verbose = TRUE)
+
+# this approach is much faster!
+race_results <- all_workflows %>%
+  workflow_map("tune_race_anova",
+               seed = 1503,
+               resamples = concrete_folds,
+               grid = 10,
+               control = race_ctrl)
+
+
+# take a look at the results
+race_results %>% 
+  rank_results(select_best = TRUE) %>% 
+  filter(.metric == "rmse") %>% 
+  select(model, 
+         .config, 
+         rmse = mean, 
+         rank)
+
+autoplot(race_results,
+         rank_metric = "rmse",
+         metric = "rmse",
+         select_best = TRUE) +
+  geom_text(aes(y = mean,
+                label = wflow_id),
+            angle = 90,
+            vjust = -1,
+            hjust = 1) +
+  lims(y = c(3.5, 9.5)) + 
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks = seq(1, 12, 2))
+
+# lets compare both results (tune_gird vs. tune_race_anova)
+matched_results <- rank_results(race_results, 
+                                select_best = TRUE) %>% 
+  select(wflow_id, .metric,
+         race = mean,
+         config_race = .config,
+         model) %>% 
+  inner_join(rank_results(grid_results,
+                          select_best = TRUE) %>% 
+               select(wflow_id, .metric,
+                      complete = mean,
+                      confi_complete = .config,
+                      model),
+             by = c("wflow_id", ".metric", "model")) %>% 
+  filter(.metric == "rmse")
+
+library(ggrepel)
+matched_results %>% 
+  ggplot(aes(complete, race)) + 
+  geom_point() + 
+  geom_abline(lty = 3) + 
+  annotate(geom = "label",
+           label = glue::glue("Correlation: {round(cor(matched_results$complete, matched_results$race), 2)}"),
+           x = 5,
+           y = 8) + 
+  geom_text_repel(aes(label = model)) +
+  coord_obs_pred() +
+  labs(x = "Compete Grid RMSE",
+       y = "Racing RMSE")
+
