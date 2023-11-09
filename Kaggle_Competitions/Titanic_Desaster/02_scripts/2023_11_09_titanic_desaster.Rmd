@@ -1,0 +1,227 @@
+---
+title: "<br>Titanic Desaster - Kaggle Competition<br><br>"
+output: 
+  html_document: 
+    toc: yes
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+\
+\
+
+### 1. Packages
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(finetune)
+library(glue)
+
+# change default theme and create "not in"-function
+theme_set(theme_minimal())
+`%ni%` <- negate(`%in%`)
+
+# set up parallel processing
+library(doParallel)
+cl <- makeCluster(8)
+registerDoParallel(cl)
+```
+
+\
+\
+
+### 2. Data
+
+```{r message=FALSE, warning=FALSE}
+dataset <- read_csv(here::here("kaggle_competitions",
+                               "Titanic_Desaster",
+                               "01_data",
+                               "train.csv")) %>% 
+  # some data cleaning...
+  janitor::clean_names() %>% 
+  mutate(pclass = case_when(
+    pclass == 1 ~ "First Class",
+    pclass == 2 ~ "Second Class",
+    pclass == 3 ~ "Third Class",
+    TRUE ~ NA_character_),
+    sex = str_to_title(sex),
+    embarked = case_when(
+      embarked == "C" ~ "Cherbourg",
+      embarked == "Q" ~ "Queenstown",
+      embarked == "S" ~ "Southampton",
+      TRUE ~ NA_character_),
+    survived = factor(survived))
+
+holdout <- read_csv(here::here("kaggle_competitions",
+                               "Titanic_Desaster",
+                               "01_data",
+                               "test.csv")) %>% 
+  # some data cleaning...
+  janitor::clean_names() %>% 
+  mutate(pclass = case_when(
+    pclass == 1 ~ "First Class",
+    pclass == 2 ~ "Second Class",
+    pclass == 3 ~ "Third Class",
+    TRUE ~ NA_character_),
+    sex = str_to_title(sex),
+    embarked = case_when(
+      embarked == "C" ~ "Cherbourg",
+      embarked == "Q" ~ "Queenstown",
+      embarked == "S" ~ "Southampton",
+      TRUE ~ NA_character_))
+
+sample_submission <- read_csv(here::here("kaggle_competitions",
+                                         "Titanic_Desaster",
+                                         "01_data",
+                                         "gender_submission.csv"))
+
+# create training and testing sets
+set.seed(1234)
+titanic_split <- initial_split(dataset,
+                               prop = 0.75,
+                               strata = survived)
+
+titanic_train <- training(titanic_split)
+titanic_test <- testing(titanic_split)
+
+# create folds for cross validation
+set.seed(5678)
+titanic_folds <- vfold_cv(titanic_train,
+                          strata = survived,
+                          v = 10,
+                          repeats = 5)
+```
+
+\
+\
+
+## 3. Exploratory Data Analysis
+
+### 3.1. Numbers
+```{r message=FALSE, warning=FALSE}
+# View(titanic_train)
+
+skimr::skim(titanic_train)
+
+# do some counting
+# for(var in names(titanic_train)) {
+#   
+#   titanic_train %>% 
+#     count(.data[[var]],
+#           sort = TRUE) %>% 
+#     print()
+# }
+```
+
+\
+\
+
+### 3.2. Plots
+```{r message=FALSE, warning=FALSE, fig.height = 10, fig.width = 16}
+knitr::opts_chunk$set(fig.width=16, 
+                      fig.height=14)
+
+titanic_train %>% 
+  ggplot(aes(survived, age))  +
+  geom_boxplot(aes(fill = survived),
+               show.legend = FALSE)
+
+titanic_train %>% 
+  ggplot(aes(survived, fare)) + 
+  geom_boxplot(aes(fill = survived),
+               show.legend = FALSE) + 
+  scale_y_log10()
+```
+
+
+```{r message=FALSE, warning=FALSE, fig.height = 16, fig.width = 16}
+# create summarize_survived()-function
+summarize_survived <- function(tbl, variable, title) {
+  
+  tbl %>% 
+    group_by({{ variable }}) %>% 
+    summarize(n = n(),
+              survived = sum(survived == 1)) %>% 
+    mutate(pct_survived = survived / n,
+           pct_low = qbeta(0.025, survived + 0.5, n - survived + 0.5),
+           pct_high = qbeta(0.975, survived + 0.5, n - survived + 0.5)) %>% 
+    mutate({{ variable }} := fct_reorder({{ variable }}, pct_survived)) %>% 
+    ggplot(aes(pct_survived, {{ variable }},
+               color = {{ variable }})) + 
+    geom_point(aes(size = n)) + 
+    geom_errorbar(aes(xmin = pct_low,
+                      xmax = pct_high),
+                  width = 0.25) +
+    scale_x_continuous(labels = scales::percent_format()) + 
+    expand_limits(x = c(0, 1)) +
+    guides(color = "none") + 
+    labs(title = glue("\n\n{title}\n"),
+         x = "Percent Survived",
+         y = "",
+         size = "Number of observations")
+  
+}
+
+gridExtra::grid.arrange(
+  
+  # pclass
+  titanic_train %>% 
+    summarize_survived(pclass, "Ticket class") + 
+    theme(axis.text.x = element_blank()) + 
+    labs(x = ""),
+  
+  # sex
+  titanic_train %>% 
+    summarize_survived(sex, "Sex") +
+    theme(axis.text.x = element_blank()) +
+    labs(x = ""),
+  
+  # embarked
+  titanic_train %>% 
+    filter(!is.na(embarked)) %>% 
+    summarize_survived(embarked, "Embarked") +
+    theme(axis.text.x = element_blank()) +
+    labs(x = ""),
+  
+  # age groups
+  titanic_train %>% 
+    filter(!is.na(age)) %>% 
+    mutate(age_groups = case_when(
+      age <= 20 ~ "-20",
+      age > 20 & age <= 40 ~ "between 20 and 40",
+      age > 40 ~ "40+")
+    ) %>% 
+    summarize_survived(age_groups, "Age groups") +
+    theme(axis.text.x = element_blank()) +
+    labs(x = ""),
+  
+  # sib_sp
+  titanic_train %>% 
+    filter(!is.na(sib_sp)) %>% 
+    mutate(sib_sp = factor(sib_sp)) %>% 
+    summarize_survived(sib_sp, "Number of siblings / spouses") +
+    theme(axis.text.x = element_blank()) +
+    labs(x = ""),
+  
+  # parch
+  titanic_train %>% 
+    filter(!is.na(parch)) %>% 
+    mutate(parch = factor(parch)) %>% 
+    summarize_survived(parch, "Number of parents / children"),
+  
+  ncol = 2
+  
+)
+```
+
+\
+\
+
+### Clean up
+
+```{r message=FALSE, warning=FALSE}
+# end cluster
+stopCluster(cl)
+```
