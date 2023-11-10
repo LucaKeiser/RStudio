@@ -22,11 +22,6 @@ library(glue)
 # change default theme and create "not in"-function
 theme_set(theme_minimal())
 `%ni%` <- negate(`%in%`)
-
-# set up parallel processing
-library(doParallel)
-cl <- makeCluster(8)
-registerDoParallel(cl)
 ```
 
 \
@@ -52,7 +47,13 @@ dataset <- read_csv(here::here("kaggle_competitions",
       embarked == "Q" ~ "Queenstown",
       embarked == "S" ~ "Southampton",
       TRUE ~ NA_character_),
-    survived = factor(survived))
+    survived = factor(survived)) %>% 
+  # a bit of feature engineering...
+  mutate(cabin_group = str_remove_all(cabin, "\\d"),
+         cabin_group = str_sub(cabin_group, 1, 1),
+         cabin_group = factor(ifelse(is.na(cabin_group) | 
+                                       cabin_group == "T", 
+                                     "None", cabin_group)))
 
 holdout <- read_csv(here::here("kaggle_competitions",
                                "Titanic_Desaster",
@@ -70,7 +71,13 @@ holdout <- read_csv(here::here("kaggle_competitions",
       embarked == "C" ~ "Cherbourg",
       embarked == "Q" ~ "Queenstown",
       embarked == "S" ~ "Southampton",
-      TRUE ~ NA_character_))
+      TRUE ~ NA_character_)) %>% 
+  # a bit of feature engineering...
+  mutate(cabin_group = str_remove_all(cabin, "\\d"),
+         cabin_group = str_sub(cabin_group, 1, 1),
+         cabin_group = factor(ifelse(is.na(cabin_group) | 
+                                       cabin_group == "T", 
+                                     "None", cabin_group)))
 
 sample_submission <- read_csv(here::here("kaggle_competitions",
                                          "Titanic_Desaster",
@@ -80,8 +87,8 @@ sample_submission <- read_csv(here::here("kaggle_competitions",
 # create training and testing sets
 set.seed(1234)
 titanic_split <- initial_split(dataset,
-                               prop = 0.75,
-                               strata = survived)
+                               strata = survived,
+                               prop = 0.8)
 
 titanic_train <- training(titanic_split)
 titanic_test <- testing(titanic_split)
@@ -90,8 +97,7 @@ titanic_test <- testing(titanic_split)
 set.seed(5678)
 titanic_folds <- vfold_cv(titanic_train,
                           strata = survived,
-                          v = 10,
-                          repeats = 5)
+                          v = 10)
 ```
 
 \
@@ -119,22 +125,35 @@ skimr::skim(titanic_train)
 \
 
 ### 3.2. Plots
-```{r message=FALSE, warning=FALSE, fig.height = 10, fig.width = 16}
-knitr::opts_chunk$set(fig.width=16, 
-                      fig.height=14)
 
+\
+
+**Numeric Variables**
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
 titanic_train %>% 
+  mutate(survived = ifelse(survived == 1, "Yes", "No")) %>% 
   ggplot(aes(survived, age))  +
   geom_boxplot(aes(fill = survived),
-               show.legend = FALSE)
+               show.legend = FALSE) + 
+  labs(title = "Age",
+       x = "Survived",
+       y = "Age (in years)")
 
-titanic_train %>% 
+titanic_train %>%
+  mutate(survived = ifelse(survived == 1, "Yes", "No")) %>% 
   ggplot(aes(survived, fare)) + 
   geom_boxplot(aes(fill = survived),
                show.legend = FALSE) + 
-  scale_y_log10()
+  scale_y_log10() +
+  labs(title = "Passenger fare",
+       x = "Survived",
+       y = "Fare")
 ```
 
+\
+
+**Categorical variables**
 
 ```{r message=FALSE, warning=FALSE, fig.height = 16, fig.width = 16}
 # create summarize_survived()-function
@@ -185,6 +204,9 @@ gridExtra::grid.arrange(
     theme(axis.text.x = element_blank()) +
     labs(x = ""),
   
+  
+  ### grouping (there are too few observations
+  ### for identifying any trends...)
   # age groups
   titanic_train %>% 
     filter(!is.na(age)) %>% 
@@ -200,15 +222,13 @@ gridExtra::grid.arrange(
   # sib_sp
   titanic_train %>% 
     filter(!is.na(sib_sp)) %>% 
-    mutate(sib_sp = factor(sib_sp)) %>% 
-    summarize_survived(sib_sp, "Number of siblings / spouses") +
-    theme(axis.text.x = element_blank()) +
-    labs(x = ""),
+    mutate(sib_sp = ifelse(sib_sp > 0, "More than one", "None")) %>% 
+    summarize_survived(sib_sp, "Number of siblings / spouses"),
   
   # parch
   titanic_train %>% 
     filter(!is.na(parch)) %>% 
-    mutate(parch = factor(parch)) %>% 
+    mutate(parch = ifelse(parch > 0, "More than one", "None")) %>%
     summarize_survived(parch, "Number of parents / children"),
   
   ncol = 2
@@ -216,12 +236,447 @@ gridExtra::grid.arrange(
 )
 ```
 
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+# cabin
+titanic_train %>% 
+  summarize_survived(cabin_group, "Cabin number")
+```
+
 \
 \
 
-### Clean up
+## 4. Modeling
+
+### 4.1. Stupid model
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+glue("A very stupid model would have an accuracy of {round(sd(as.numeric(titanic_train$survived)), 2)}%. Basically a coinflip... Hopefully we can beat that.")
+```
+
+\
+\
+
+### 4.2. Logistic model
 
 ```{r message=FALSE, warning=FALSE}
-# end cluster
-stopCluster(cl)
+titanic_metric <- metric_set(accuracy)
+titanic_control <- control_resamples(save_pred = TRUE,
+                                     save_workflow = TRUE,
+                                     verbose = TRUE)
 ```
+
+```{r message=FALSE, warning=FALSE}
+### 1. create model
+logistic_model <- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+```
+
+```{r message=FALSE, warning=FALSE}
+### 2. create recipe
+logistic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
+                            parch + fare + embarked + cabin_group,
+                          data = titanic_train) %>%
+  step_impute_mode(all_nominal_predictors()) %>% 
+  step_impute_median(all_numeric_predictors()) %>% 
+  step_log(fare, 
+           base = 10,
+           offset = 1) %>% 
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors())
+# take a look
+# logistic_recipe %>%
+#   prep() %>%
+#   juice() %>%
+#   glimpse()
+```
+
+```{r message=FALSE, warning=FALSE}
+### 3. set up workflow
+logistic_wflow <- workflow() %>% 
+  add_model(logistic_model) %>% 
+  add_recipe(logistic_recipe)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 4. fit on resamples
+logistic_res <- logistic_wflow %>% 
+  fit_resamples(resamples = titanic_folds,
+                metrics = titanic_metric,
+                control = titanic_control)
+
+# calculate accuracy
+collect_predictions(logistic_res) %>% 
+  count(PASSED = survived == .pred_class) %>% 
+  mutate(pct_PASSED = n / sum(n))
+# or just collect metrics...
+collect_metrics(logistic_res)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 5. last fit
+logistic_res <- logistic_wflow %>% 
+  last_fit(titanic_split)
+
+logistic_res %>% 
+  collect_metrics()
+logistic_res %>% 
+  collect_predictions()
+
+# NOTE: fit on resamples and last fit differ greatly
+#       in terms of accuracy (0.804 vs. 0.777)... 
+```
+
+```{r message=FALSE, warning=FALSE, fig.height=12, fig.width=16}
+logistic_res %>% 
+  extract_fit_engine() %>% 
+  tidy(conf.int = TRUE) %>% 
+  mutate(term = fct_reorder(term, estimate)) %>% 
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(estimate, term)) + 
+  geom_point() +
+  geom_errorbar(aes(xmin = conf.low,
+                    xmax = conf.high),
+                width = 0.2) + 
+  geom_vline(xintercept = 0, 
+             lty = 2,
+             color = "red") +
+  labs(x = "Estimate",
+       y = "")
+```
+
+```{r message=FALSE, warning=FALSE}
+### 6. predict holdout
+logistic_submission <- logistic_res %>% 
+  extract_workflow() %>% 
+  predict(holdout) %>% 
+  bind_cols(holdout %>% 
+              select(passenger_id)) %>% 
+  rename("PassengerId" = passenger_id,
+         "Survived" = .pred_class) %>% 
+  relocate(PassengerId)
+
+logistic_submission %>% 
+  count(Survived)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 7. save
+write_csv(x = logistic_submission,
+          file = here::here("kaggle_competitions",
+                            "Titanic_Desaster",
+                            "03_submissions",
+                            "logistic_submission.csv"))
+```
+
+
+\
+\
+
+### 4.3. Tree models (many models approach)
+
+```{r message=FALSE, warning=FALSE}
+titanic_metric <- metric_set(accuracy)
+titanic_control <- control_race(save_pred = TRUE,  
+                                parallel_over = "everything",
+                                save_workflow = TRUE,
+                                verbose = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+### 1. create models
+dt_model <- decision_tree(cost_complexity = tune(),
+                          tree_depth = tune(),
+                          min_n = tune()) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+rf_model <- rand_forest(mtry = tune(),
+                        trees = tune(),
+                        min_n = tune()) %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+
+xgb_model <- boost_tree(tree_depth = tune(), 
+                        learn_rate = tune(), 
+                        loss_reduction = tune(), 
+                        min_n = tune(), 
+                        sample_size = tune(), 
+                        trees = tune()) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+```
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+### 2. create recipe
+tree_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
+                        parch + fare + embarked + cabin_group,
+                      data = titanic_train) %>% 
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_impute_median(all_numeric_predictors()) %>% 
+  step_log(fare,
+           base = 10,
+           offset = 1) %>% 
+  step_nzv(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_predictors())
+
+# take a look
+tree_recipe %>%
+  prep() %>%
+  juice() %>%
+  skimr::skim()
+```
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+### 3. create workflow set
+tree_wflow <- workflow_set(preproc = list(tree_rec = tree_recipe),
+                           models = list(decision_tree = dt_model,
+                                         random_forest = rf_model,
+                                         xgboost = xgb_model))
+```
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+### 4. fit on resamples and tuning
+tree_results <- tree_wflow %>% 
+  workflow_map(fn = "tune_race_anova",
+               resamples = titanic_folds,
+               control = titanic_control,
+               metrics = titanic_metric,
+               grid = 25,
+               seed = 2023)
+
+collect_metrics(tree_results)
+autoplot(tree_results) + 
+  geom_text(aes(y = mean,
+                label = wflow_id),
+            size = 5,
+            angle = 90,
+            vjust = -1) +
+  labs(y = "Accuracy") +
+  theme(legend.position = "none")
+# all models perfom well...
+```
+
+```{r message=FALSE, warning=FALSE}
+### 5. last fit
+
+# decision tree
+best_dt <- tree_results %>% 
+  extract_workflow_set_result("tree_rec_decision_tree") %>% 
+  select_best(metric = "accuracy")
+
+best_dt_results <- tree_results %>% 
+  extract_workflow("tree_rec_decision_tree") %>% 
+  finalize_workflow(best_dt) %>% 
+  last_fit(split = titanic_split)
+
+best_dt_results %>% 
+  collect_metrics()
+
+# random forest
+best_rf <- tree_results %>% 
+  extract_workflow_set_result("tree_rec_random_forest") %>% 
+  select_best(metric = "accuracy")
+
+best_rf_results <- tree_results %>% 
+  extract_workflow("tree_rec_random_forest") %>% 
+  finalize_workflow(best_rf) %>% 
+  last_fit(split = titanic_split)
+
+best_rf_results %>% 
+  collect_metrics()
+
+
+# xgboost
+best_xgb <- tree_results %>% 
+  extract_workflow_set_result("tree_rec_xgboost") %>% 
+  select_best(metric = "accuracy")
+
+best_xgb_results <- tree_results %>% 
+  extract_workflow("tree_rec_xgboost") %>% 
+  finalize_workflow(best_xgb) %>% 
+  last_fit(split = titanic_split)
+
+best_xgb_results %>% 
+  collect_metrics()
+```
+
+```{r message=FALSE, warning=FALSE}
+### 6. predict holdout
+
+# decision tree
+dt_fit <- tree_results %>% 
+  extract_workflow("tree_rec_decision_tree") %>% 
+  finalize_workflow(best_dt) %>% 
+  fit(dataset)
+
+dt_submission <- dt_fit %>% 
+  predict(new_data = holdout,
+          type = "class") %>%
+  bind_cols(holdout %>% 
+              select(passenger_id)) %>% 
+  rename("PassengerId" = passenger_id,
+         "Survived" = .pred_class) %>% 
+  relocate(PassengerId)
+
+dt_submission %>% 
+  count(Survived)
+
+# random forest
+rf_fit <- tree_results %>% 
+  extract_workflow("tree_rec_random_forest") %>% 
+  finalize_workflow(best_rf) %>% 
+  fit(dataset)
+
+rf_submission <- rf_fit %>% 
+  predict(new_data = holdout,
+          type = "class") %>%
+  bind_cols(holdout %>% 
+              select(passenger_id)) %>% 
+  rename("PassengerId" = passenger_id,
+         "Survived" = .pred_class) %>% 
+  relocate(PassengerId)
+
+rf_submission %>% 
+  count(Survived)
+
+# xgboost
+xgb_fit <- tree_results %>% 
+  extract_workflow("tree_rec_xgboost") %>% 
+  finalize_workflow(best_xgb) %>% 
+  fit(dataset)
+
+xgb_submission <- xgb_fit %>% 
+  predict(new_data = holdout,
+          type = "class") %>%
+  bind_cols(holdout %>% 
+              select(passenger_id)) %>% 
+  rename("PassengerId" = passenger_id,
+         "Survived" = .pred_class) %>% 
+  relocate(PassengerId)
+
+xgb_submission %>% 
+  count(Survived)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+### 7. save predictions
+write_csv(x = dt_submission,
+          file = here::here("kaggle_competitions",
+                            "Titanic_Desaster",
+                            "03_submissions",
+                            "dt_submission.csv"))
+
+write_csv(x = rf_submission,
+          file = here::here("kaggle_competitions",
+                            "Titanic_Desaster",
+                            "03_submissions",
+                            "rf_submission.csv"))
+
+write_csv(x = xgb_submission,
+          file = here::here("kaggle_competitions",
+                            "Titanic_Desaster",
+                            "03_submissions",
+                            "xgb_submission.csv"))
+```
+
+
+\
+\
+
+### 4.4. Neural network
+
+
+```{r message=FALSE, warning=FALSE}
+titanic_metric <- metric_set(accuracy)
+titanic_control <- control_grid(save_pred = TRUE,  
+                                save_workflow = TRUE,
+                                verbose = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 1. create models
+nnet_model <- mlp(hidden_units = tune(), 
+                  penalty = tune(),
+                  epochs = tune()) %>% 
+  set_engine("nnet") %>% 
+  set_mode("classification")
+```
+
+```{r message=FALSE, warning=FALSE}
+### 2. create recipe
+nnet_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
+                        parch + fare + embarked + cabin_group,
+                      data = titanic_train) %>% 
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_impute_median(all_numeric_predictors()) %>% 
+  step_log(fare,
+           base = 10,
+           offset = 1) %>% 
+  step_nzv(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_predictors())
+
+nnet_recipe %>% 
+  prep() %>% 
+  juice()
+```
+
+```{r message=FALSE, warning=FALSE}
+### 3. create workflow
+nnet_wflow <- workflow() %>% 
+  add_model(nnet_model) %>% 
+  add_recipe(nnet_recipe)
+```
+
+```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
+### 4. fit on resamples and tuning
+nnet_res <- nnet_wflow %>% 
+  tune_grid(resamples = titanic_folds,
+            metrics = titanic_metric,
+            control = titanic_control,
+            grid = 25)
+
+collect_metrics(nnet_res)
+autoplot(nnet_res)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 5. last fit
+best_nnet <- nnet_res %>% 
+  select_best(metric = "accuracy")
+
+nnet_fit <- nnet_res %>% 
+  extract_workflow() %>% 
+  finalize_workflow(best_nnet) %>% 
+  last_fit(split = titanic_split)
+
+collect_metrics(nnet_fit)  
+```
+
+```{r}
+### 6. predict holdout
+nnet_submission <- nnet_fit %>% 
+  extract_workflow() %>% 
+  predict(holdout) %>% 
+  bind_cols(holdout %>% 
+              select(passenger_id)) %>% 
+  rename("PassengerId" = passenger_id,
+         "Survived" = .pred_class) %>% 
+  relocate(PassengerId)
+
+nnet_submission %>% 
+  count(Survived)
+```
+
+```{r message=FALSE, warning=FALSE}
+### 7. save predictions
+write_csv(x = nnet_submission,
+          file = here::here("kaggle_competitions",
+                            "Titanic_Desaster",
+                            "03_submissions",
+                            "nnet_submission.csv"))
+```
+
