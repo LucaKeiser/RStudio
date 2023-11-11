@@ -27,9 +27,10 @@ theme_set(theme_minimal())
 \
 \
 
-### 2. Data
+## 2. Data
 
 ```{r message=FALSE, warning=FALSE}
+### 1.
 dataset <- read_csv(here::here("kaggle_competitions",
                                "Titanic_Desaster",
                                "01_data",
@@ -47,14 +48,10 @@ dataset <- read_csv(here::here("kaggle_competitions",
       embarked == "Q" ~ "Queenstown",
       embarked == "S" ~ "Southampton",
       TRUE ~ NA_character_),
-    survived = factor(survived)) %>% 
-  # a bit of feature engineering...
-  mutate(cabin_group = str_remove_all(cabin, "\\d"),
-         cabin_group = str_sub(cabin_group, 1, 1),
-         cabin_group = factor(ifelse(is.na(cabin_group) | 
-                                       cabin_group == "T", 
-                                     "None", cabin_group)))
+    survived = factor(survived))
 
+
+### 2.
 holdout <- read_csv(here::here("kaggle_competitions",
                                "Titanic_Desaster",
                                "01_data",
@@ -71,23 +68,24 @@ holdout <- read_csv(here::here("kaggle_competitions",
       embarked == "C" ~ "Cherbourg",
       embarked == "Q" ~ "Queenstown",
       embarked == "S" ~ "Southampton",
-      TRUE ~ NA_character_)) %>% 
-  # a bit of feature engineering...
-  mutate(cabin_group = str_remove_all(cabin, "\\d"),
-         cabin_group = str_sub(cabin_group, 1, 1),
-         cabin_group = factor(ifelse(is.na(cabin_group) | 
-                                       cabin_group == "T", 
-                                     "None", cabin_group)))
+      TRUE ~ NA_character_))
 
+
+### 3.
 sample_submission <- read_csv(here::here("kaggle_competitions",
                                          "Titanic_Desaster",
                                          "01_data",
                                          "gender_submission.csv"))
+```
 
-# create training and testing sets
+\
+
+### 2.2. Ceate training and testing sets
+
+```{r message=FALSE, warning=FALSE}
 set.seed(1234)
 titanic_split <- initial_split(dataset,
-                               strata = survived,
+                               strata = "survived",
                                prop = 0.8)
 
 titanic_train <- training(titanic_split)
@@ -105,9 +103,11 @@ titanic_folds <- vfold_cv(titanic_train,
 
 ## 3. Exploratory Data Analysis
 
-### 3.1. Numbers
-```{r message=FALSE, warning=FALSE}
-# View(titanic_train)
+\
+
+**First look**
+```{r}
+# View(data)
 
 skimr::skim(titanic_train)
 
@@ -120,11 +120,6 @@ skimr::skim(titanic_train)
 #     print()
 # }
 ```
-
-\
-\
-
-### 3.2. Plots
 
 \
 
@@ -222,13 +217,19 @@ gridExtra::grid.arrange(
   # sib_sp
   titanic_train %>% 
     filter(!is.na(sib_sp)) %>% 
-    mutate(sib_sp = ifelse(sib_sp > 0, "More than one", "None")) %>% 
+    mutate(sib_sp = case_when(
+      sib_sp == 0 ~ "None",
+      sib_sp == 1 ~ "One",
+      sib_sp >= 2 ~ "More than one")) %>% 
     summarize_survived(sib_sp, "Number of siblings / spouses"),
   
   # parch
   titanic_train %>% 
     filter(!is.na(parch)) %>% 
-    mutate(parch = ifelse(parch > 0, "More than one", "None")) %>%
+    mutate(parch = case_when(
+      parch == 0 ~ "None",
+      parch == 1 ~ "One",
+      parch >= 2 ~ "More than one")) %>% 
     summarize_survived(parch, "Number of parents / children"),
   
   ncol = 2
@@ -239,7 +240,12 @@ gridExtra::grid.arrange(
 ```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
 # cabin
 titanic_train %>% 
-  summarize_survived(cabin_group, "Cabin number")
+  mutate(cabin = str_remove_all(cabin, "\\d"),
+         cabin = str_sub(cabin, 1, 1),
+         cabin = factor(ifelse(is.na(cabin) | 
+                                 cabin == "T", 
+                               "None", "Has number"))) %>% 
+  summarize_survived(cabin, "Cabin number")
 ```
 
 \
@@ -272,23 +278,47 @@ logistic_model <- logistic_reg() %>%
   set_mode("classification")
 ```
 
+
 ```{r message=FALSE, warning=FALSE}
 ### 2. create recipe
 logistic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
-                            parch + fare + embarked + cabin_group,
+                            parch + fare + embarked + cabin,
                           data = titanic_train) %>%
-  step_impute_mode(all_nominal_predictors()) %>% 
-  step_impute_median(all_numeric_predictors()) %>% 
+  step_impute_mode(pclass, sex, embarked) %>% 
+  step_impute_median(age, sib_sp, parch, fare) %>% 
   step_log(fare, 
            base = 10,
            offset = 1) %>% 
-  step_nzv(all_predictors()) %>% 
+  step_mutate(age = case_when(
+    age <= 20 ~ "below 20",
+    age > 20 & age <= 40 ~ "between 20 and 40",
+    age > 40 ~ "above 40")
+  ) %>% 
+  step_mutate(sib_sp = case_when(
+    sib_sp == 0 ~ "None",
+    sib_sp == 1 ~ "One",
+    sib_sp >= 2 ~ "More than one")
+  ) %>% 
+  step_mutate(parch = case_when(
+    parch == 0 ~ "None",
+    parch == 1 ~ "One",
+    parch >= 2 ~ "More than one")
+  ) %>%
+  step_mutate(cabin = if_else(is.na(cabin), "None", "Has number")) %>% 
+  step_mutate(age = factor(age, 
+                           levels = c("below 20", "between 20 and 40", "above 40"))) %>% 
+  step_mutate(sib_sp = factor(sib_sp, 
+                              levels = c("None", "One", "More than one"))) %>% 
+  step_mutate(parch = factor(parch,
+                             levels = c("None", "One", "More than one"))) %>%
+  step_mutate(cabin = factor(cabin,
+                             levels = c("None", "Has number"))) %>% 
   step_dummy(all_nominal_predictors())
+
 # take a look
-# logistic_recipe %>%
-#   prep() %>%
-#   juice() %>%
-#   glimpse()
+logistic_recipe %>%
+  prep() %>%
+  juice()
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -322,12 +352,9 @@ logistic_res %>%
   collect_metrics()
 logistic_res %>% 
   collect_predictions()
-
-# NOTE: fit on resamples and last fit differ greatly
-#       in terms of accuracy (0.804 vs. 0.777)... 
 ```
 
-```{r message=FALSE, warning=FALSE, fig.height=12, fig.width=16}
+```{r message=FALSE, warning=FALSE, fig.height=8, fig.width=16}
 logistic_res %>% 
   extract_fit_engine() %>% 
   tidy(conf.int = TRUE) %>% 
@@ -409,23 +436,13 @@ xgb_model <- boost_tree(tree_depth = tune(),
 
 ```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
 ### 2. create recipe
-tree_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
-                        parch + fare + embarked + cabin_group,
-                      data = titanic_train) %>% 
-  step_impute_mode(all_nominal_predictors()) %>%
-  step_impute_median(all_numeric_predictors()) %>% 
-  step_log(fare,
-           base = 10,
-           offset = 1) %>% 
-  step_nzv(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+tree_recipe <- logistic_recipe %>% 
   step_normalize(all_predictors())
 
 # take a look
-tree_recipe %>%
-  prep() %>%
-  juice() %>%
-  skimr::skim()
+# tree_recipe %>%
+#   prep() %>%
+#   juice()
 ```
 
 ```{r message=FALSE, warning=FALSE, fig.height = 8, fig.width = 16}
@@ -455,7 +472,6 @@ autoplot(tree_results) +
             vjust = -1) +
   labs(y = "Accuracy") +
   theme(legend.position = "none")
-# all models perfom well...
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -607,21 +623,12 @@ nnet_model <- mlp(hidden_units = tune(),
 
 ```{r message=FALSE, warning=FALSE}
 ### 2. create recipe
-nnet_recipe <- recipe(survived ~ pclass + sex + age + sib_sp +
-                        parch + fare + embarked + cabin_group,
-                      data = titanic_train) %>% 
-  step_impute_mode(all_nominal_predictors()) %>%
-  step_impute_median(all_numeric_predictors()) %>% 
-  step_log(fare,
-           base = 10,
-           offset = 1) %>% 
-  step_nzv(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_predictors())
+nnet_recipe <- tree_recipe
 
-nnet_recipe %>% 
-  prep() %>% 
-  juice()
+# take a look
+# nnet_recipe %>% 
+#   prep() %>% 
+#   juice()
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -656,7 +663,7 @@ nnet_fit <- nnet_res %>%
 collect_metrics(nnet_fit)  
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ### 6. predict holdout
 nnet_submission <- nnet_fit %>% 
   extract_workflow() %>% 
