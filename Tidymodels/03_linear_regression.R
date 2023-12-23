@@ -8,6 +8,7 @@
 # load packages -----------------------------------------------------------
 library(tidyverse)
 library(tidymodels)
+theme_set(theme_minimal())
 
 
 
@@ -16,7 +17,6 @@ library(tidymodels)
 # load data ---------------------------------------------------------------
 penguins
 
-theme_set(theme_minimal())
 
 
 

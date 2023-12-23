@@ -9,6 +9,7 @@
 library(tidyverse)
 library(tidymodels)
 library(modelr)
+theme_set(theme_minimal())
 
 
 
@@ -16,8 +17,6 @@ library(modelr)
 
 # load data ---------------------------------------------------------------
 penguins
-
-theme_set(theme_minimal())
 
 
 
