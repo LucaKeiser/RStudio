@@ -54,11 +54,11 @@ ESS_10_small_rec <- ESS_10_small %>%
          imwbcnt = ifelse(imwbcnt <= 5, "Immigrants Worse Place to Live", "Immigrants Better Place to Live"),
          imbgeco = ifelse(imbgeco <= 5, "Immigrants Bad for Economy", "Immigrants Good for Economy"),
          imueclt = ifelse(imueclt <= 5, "Immigrants Undermine Cultural Life", "Immigrants Enrich Cultural Life"),
-         happy = ifelse(happy <= 5, "Unhappy", "Happy"),
-         lrscale = ifelse(lrscale <= 5, "Left", "Right"),
-         agea = case_when(agea < 35 ~ "under 35",
-                          between(agea, 35, 55) ~ "between 35 and 55",
-                          agea > 55 ~ "above 55"),
+         happy = ifelse(happy <= 5, "Generally Unhappy", "Generally Happy"),
+         lrscale = ifelse(lrscale <= 5, "Politics: Left", "Politics: Right"),
+         agea = case_when(agea < 35 ~ "Age: under 35",
+                          between(agea, 35, 55) ~ "Age: between 35 and 55",
+                          agea > 55 ~ "Age: above 55"),
          gndr = ifelse(gndr == 1, "Male", "Female")) %>% 
   mutate(across(-idno, ~as_factor(.)))
 
@@ -95,7 +95,7 @@ m_rows <- tibble(
 
 
 # Dim 1 and Dim 2
-m_rows %>% 
+p1 <- m_rows %>% 
   ggplot(aes(x = dim_1, y = dim_2)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) + 
@@ -117,8 +117,15 @@ m_rows %>%
        x = glue("Dimension 1 ({round(model$eig[1,2], 2)}%)"),
        y = glue("Dimension 2 ({round(model$eig[2,2], 2)}%)"))
 
+ggsave(filename = here::here("Tidymodels",
+                             "MCA_Output",
+                             "MCA_Dim1_Dim2.pdf"),
+       plot = p1,
+       width = 25, 
+       height = 15)
+
 # Dim 1 and Dim 3
-m_rows %>% 
+p2 <- m_rows %>% 
   ggplot(aes(x = dim_1, y = dim_3)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) + 
@@ -140,8 +147,17 @@ m_rows %>%
        x = glue("Dimension 1 ({round(model$eig[1,2], 2)}%)"),
        y = glue("Dimension 3 ({round(model$eig[3,2], 2)}%)"))
 
+
+ggsave(filename = here::here("Tidymodels",
+                             "MCA_Output",
+                             "MCA_Dim1_Dim3.pdf"),
+       plot = p2,
+       width = 25, 
+       height = 15)
+
+
 # Dim 2 and Dim 3
-m_rows %>% 
+p3 <- m_rows %>% 
   ggplot(aes(x = dim_2, y = dim_3)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) + 
@@ -163,3 +179,10 @@ m_rows %>%
        x = glue("Dimension 2 ({round(model$eig[2,2], 2)}%)"),
        y = glue("Dimension 3 ({round(model$eig[3,2], 2)}%)"))
 
+
+ggsave(filename = here::here("Tidymodels",
+                             "MCA_Output",
+                             "MCA_Dim2_Dim3.pdf"),
+       plot = p3,
+       width = 25, 
+       height = 15)
