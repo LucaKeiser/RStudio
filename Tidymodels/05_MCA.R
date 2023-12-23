@@ -28,7 +28,7 @@ ESS_10 <- read_csv(here::here("datasets",
 # EDA ---------------------------------------------------------------------
 ESS_10_small <- ESS_10 %>% 
   select(idno, contains("trst"), contains("stf"), 
-         imwbcnt, imbgeco, imueclt, loylead, 
+         imwbcnt, imbgeco, imueclt, 
          happy, lrscale, agea, gndr)
 
 ESS_10_small %>% 
@@ -54,7 +54,6 @@ ESS_10_small_rec <- ESS_10_small %>%
          imwbcnt = ifelse(imwbcnt <= 5, "Immigrants Worse Place to Live", "Immigrants Better Place to Live"),
          imbgeco = ifelse(imbgeco <= 5, "Immigrants Bad for Economy", "Immigrants Good for Economy"),
          imueclt = ifelse(imueclt <= 5, "Immigrants Undermine Cultural Life", "Immigrants Enrich Cultural Life"),
-         loylead = ifelse(loylead >= 3, "Strong Leader Yes", "Strong Lsader No"),
          happy = ifelse(happy <= 5, "Unhappy", "Happy"),
          lrscale = ifelse(lrscale <= 5, "Left", "Right"),
          agea = case_when(agea < 35 ~ "under 35",
