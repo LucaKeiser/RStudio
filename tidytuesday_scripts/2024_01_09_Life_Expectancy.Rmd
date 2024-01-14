@@ -15,12 +15,15 @@ The goal of TidyTuesday is to apply your R skills, get feedback, explore otherâ€
 As such we encourage everyone of all skills to participate!
 
 ```{r setup, include=FALSE}
-
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE,
+                      warning = FALSE)
 
 library(tidyverse)
 library(tidytuesdayR)
 
+`%ni%` <- negate(`%in%`)
+theme_set(theme_minimal())
 ```
 
 # Load the weekly Data
@@ -28,7 +31,61 @@ library(tidytuesdayR)
 Download the weekly data and make available in the `tt` object.
 
 ```{r Load}
-
 tt <- tt_load("2023-12-05")
-
 ```
+
+
+# Life Expectancy
+```{r}
+life_expectancy <- tt$life_expectancy %>% 
+  janitor::clean_names() %>%
+  rename("country" = "entity")
+
+life_expectancy %>% 
+  View()
+
+life_expectancy %>% 
+  count(Entity, sort = TRUE)
+
+life_expectancy %>% 
+  skimr::skim()
+```
+
+## Over Time
+```{r}
+set.seed(1234)
+random_countries <- life_expectancy %>% 
+  filter(!str_detect(country, "income|world")) %>% View()
+  pull(country) %>% 
+  unique() %>% 
+  sample(15)
+
+life_expectancy %>% 
+  filter(country %in% random_countries,
+         year >= 1800) %>% 
+  mutate(country = fct_reorder(country, life_expectancy)) %>% 
+  ggplot(aes(year, life_expectancy)) + 
+  geom_line(aes(group = country,
+                color = country)) + 
+  geom_line(aes(year, life_expectancy),
+            color = "black",
+            linewidth = 1.5,
+            lty = 5,
+            data = life_expectancy %>% 
+              filter(country == "World",
+                     year >= 1800)) +
+  annotate(geom = "Label",
+           label = "World",
+           fill = "black",
+           color = "white",
+           x = 1900,
+           y = 30) +
+  labs(title = "\nLife Expectancy over Time",
+       subtitle = "World vs. some random selected Countries",
+       x = "",
+       y = "Life Expectancy (Years)\n",
+       color = "") + 
+  guides(color = guide_legend(reverse = TRUE))
+  
+```
+
