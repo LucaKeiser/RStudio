@@ -1,5 +1,5 @@
 ---
-title: "TidyTemplate"
+title: "Life Expectancy"
 date: 2024-01-14
 output: html_document
 editor_options: 
@@ -7,12 +7,6 @@ editor_options:
 ---
 
 # TidyTuesday
-
-Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
-Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
-While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
-The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
-As such we encourage everyone of all skills to participate!
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
@@ -34,6 +28,8 @@ Download the weekly data and make available in the `tt` object.
 tt <- tt_load("2023-12-05")
 ```
 
+\
+\
 
 # Life Expectancy
 ```{r}
@@ -41,29 +37,28 @@ life_expectancy <- tt$life_expectancy %>%
   janitor::clean_names() %>%
   rename("country" = "entity")
 
-life_expectancy %>% 
-  View()
-
-life_expectancy %>% 
-  count(Entity, sort = TRUE)
-
-life_expectancy %>% 
-  skimr::skim()
+life_expectancy_female_male <- tt$life_expectancy_female_male %>% 
+  janitor::clean_names() %>% 
+  rename("country" = "entity")
 ```
 
-## Over Time
+\
+\
+
+## Countries Over Time
 ```{r}
 set.seed(1234)
 random_countries <- life_expectancy %>% 
-  filter(!str_detect(country, "income|world")) %>% View()
-  pull(country) %>% 
+  filter(!str_detect(country, "income|world")) %>%
+pull(country) %>% 
   unique() %>% 
   sample(15)
 
+# 1. graph
 life_expectancy %>% 
   filter(country %in% random_countries,
          year >= 1800) %>% 
-  mutate(country = fct_reorder(country, life_expectancy)) %>% 
+  mutate(country = fct_reorder(country, life_expectancy, last)) %>% 
   ggplot(aes(year, life_expectancy)) + 
   geom_line(aes(group = country,
                 color = country)) + 
@@ -82,10 +77,39 @@ life_expectancy %>%
            y = 30) +
   labs(title = "\nLife Expectancy over Time",
        subtitle = "World vs. some random selected Countries",
-       x = "",
-       y = "Life Expectancy (Years)\n",
+       x = "\nYear",
+       y = "Life Expectancy (in Years)\n",
        color = "") + 
   guides(color = guide_legend(reverse = TRUE))
-  
+
+
+# 2. graph
+life_expectancy %>% 
+  filter(str_detect(country, "income"),
+         !str_detect(country, "No income")) %>% 
+  mutate(country = fct_reorder(country, life_expectancy, last)) %>% 
+  ggplot(aes(year, life_expectancy)) + 
+  geom_line(aes(group = country,
+                color = country)) + 
+  geom_line(aes(year, life_expectancy),
+            color = "black",
+            linewidth = 1.5,
+            lty = 5,
+            data = life_expectancy %>% 
+              filter(country == "World",
+                     year >= 1950)) + 
+  annotate(geom = "Label",
+           label = "World",
+           fill = "black",
+           color = "white",
+           x = 1990,
+           y = 65.5) +
+  labs(title = "\nLife Expectancy over Time\n",
+       x = "\nYear",
+       y = "Life Expectancy (in Years)\n",
+       color = "") + 
+  guides(color = guide_legend(reverse = TRUE))
 ```
 
+\
+\
