@@ -113,3 +113,26 @@ life_expectancy %>%
 
 \
 \
+
+## Map over Time
+```{r}
+world <- map_data("world") %>% 
+  as_tibble() %>% 
+  inner_join(countrycode::codelist %>% 
+               select(iso.name.en, iso3c),
+             by = c("region" = "iso.name.en")) %>% 
+  select(-c(region, subregion))
+
+life_expectancy_map <- world %>% 
+  left_join(life_expectancy,
+             by = c("iso3c" = "code"),
+             relationship = "many-to-many")
+
+life_expectancy_map %>% 
+  ggplot(aes(long, lat,
+             group = group)) + 
+  geom_polygon(color = "grey10") + 
+  coord_map(projection = "gilbert",
+            xlim = c(-180, 180))
+```
+
