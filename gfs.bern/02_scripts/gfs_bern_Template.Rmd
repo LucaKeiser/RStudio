@@ -1,0 +1,245 @@
+---
+title: "<br>gfs.bern - Template<br><br>"
+output: 
+  html_document:
+    toc: yes
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+\
+\
+
+
+## Setup
+```{r message=FALSE, warning=FALSE}
+# packages
+library(tidyverse)
+library(sjlabelled)
+library(expss)
+library(glue)
+
+# set theme
+theme_set(theme_minimal())
+```
+
+\
+\
+\
+
+## Data
+```{r message=FALSE, warning=FALSE}
+# 1. foreign
+ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
+                                                  "01_data",
+                                                  "ESS_subset.sav"),
+                                       use.value.labels = TRUE) %>% 
+  as_tibble()
+
+# 2. haven
+ess_SPSS_haven <- haven::read_sav(here::here("gfs.bern",
+                                             "01_data",
+                                             "ESS_subset.sav"))
+
+# 3. expss
+ess_SPSS_expss <- expss::read_spss(here::here("gfs.bern",
+                                              "01_data",
+                                              "ESS_subset.sav")) %>% 
+  as_tibble()
+
+# 4. sjlabelled
+ess_SPSS_sjlabelled <- sjlabelled::read_spss(here::here("gfs.bern",
+                                              "01_data",
+                                              "ESS_subset.sav")) %>% 
+  as_tibble()
+
+# 4. readr
+ess_CSV_readr <- readr::read_csv(here::here("gfs.bern",
+                                            "01_data",
+                                            "ESS_subset.csv"))
+```
+
+\
+\
+\
+
+## 1. First look
+
+\
+
+### 1.1. View and skimr::skim()
+
+\
+
+#### foreign
+```{r message=FALSE, warning=FALSE}
+ess_SPSS_foreign
+ess_SPSS_foreign %>% 
+  skimr::skim()
+```
+
+\
+\
+
+#### haven
+```{r message=FALSE, warning=FALSE}
+ess_SPSS_haven
+ess_SPSS_haven %>%
+  skimr::skim()
+```
+
+\
+\
+
+#### expss
+```{r message=FALSE, warning=FALSE}
+ess_SPSS_expss
+# ess_SPSS_expss %>% 
+#   skimr::skim()
+```
+
+\
+\
+
+#### sjlabelled
+```{r message=FALSE, warning=FALSE}
+ess_SPSS_sjlabelled
+ess_SPSS_sjlabelled %>% 
+  skimr::skim()
+```
+
+\
+\
+
+#### readr
+```{r message=FALSE, warning=FALSE}
+ess_CSV_readr
+ess_CSV_readr %>% 
+  skimr::skim()
+```
+
+\
+
+Variable types depend on the package you choose to read them:
+
+* foreign: factors
+* haven: dbl + lbl
+* expss: labelled (skimr::skim() does not work)
+* sjlabelled: factors (histogram does not work)
+* readr: numeric
+
+This lead to further consequences...:
+
+\
+\
+\
+
+### 1.2. Type and class
+
+\
+
+#### foreign
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+typeof(ess_SPSS_foreign$agea)
+class(ess_SPSS_foreign$agea)
+
+ess_SPSS_foreign %>% 
+  head(10) %>% 
+  pull(agea)
+
+ess_SPSS_foreign %>% 
+  ggplot(aes(agea, lrscale)) + 
+  geom_point() +
+  labs(title = "\nforeign\n")
+```
+
+\
+\
+
+#### haven
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+typeof(ess_SPSS_haven$agea)
+class(ess_SPSS_haven$agea)
+
+ess_SPSS_haven %>% 
+  head(10) %>% 
+  pull(agea)
+
+ess_SPSS_haven %>% 
+  ggplot(aes(agea, lrscale)) + 
+  geom_point() +
+  labs(title = "\nhaven\n")
+```
+
+\
+\
+
+#### expss
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+typeof(ess_SPSS_expss$agea)
+class(ess_SPSS_expss$agea)
+
+ess_SPSS_expss %>% 
+  head(10) %>% 
+  pull(agea)
+
+ess_SPSS_expss %>% 
+  ggplot(aes(agea, lrscale)) + 
+  geom_point() +
+  labs(title = "\nexpss\n")
+```
+
+\
+\
+
+#### sjlabelled
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+typeof(ess_SPSS_sjlabelled$agea)
+class(ess_SPSS_sjlabelled$agea)
+
+ess_SPSS_sjlabelled %>% 
+  head(10) %>% 
+  pull(agea)
+
+ess_SPSS_sjlabelled %>% 
+  ggplot(aes(agea, lrscale)) + 
+  geom_point() +
+  labs(title = "\nsjlabelled\n")
+```
+
+\
+\
+
+#### readr
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+typeof(ess_CSV_readr$agea)
+class(ess_CSV_readr$agea)
+
+ess_CSV_readr %>% 
+  head(10) %>% 
+  pull(agea)
+
+ess_CSV_readr %>% 
+  ggplot(aes(agea, lrscale)) + 
+  geom_point() +
+  labs(title = "\nreadr\n")
+```
+
+\
+\
+\
+
+### 1.3. Object size
+
+\
+
+Also the object size differs:
+```{r message=FALSE, warning=FALSE}
+lobstr::obj_size(ess_SPSS_foreign)
+lobstr::obj_size(ess_SPSS_haven)
+lobstr::obj_size(ess_SPSS_expss)
+lobstr::obj_size(ess_SPSS_sjlabelled)
+lobstr::obj_size(ess_CSV_readr)
+```
+
