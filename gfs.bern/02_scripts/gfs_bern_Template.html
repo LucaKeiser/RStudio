@@ -668,16 +668,15 @@ display: none;
 <ul>
 <li><a href="#setup" id="toc-setup">Setup</a></li>
 <li><a href="#data" id="toc-data">Data</a></li>
-<li><a href="#first-look" id="toc-first-look">1. First look</a>
-<ul>
-<li><a href="#create-spss_summary" id="toc-create-spss_summary">1.1
+<li><a href="#create-spss_summary" id="toc-create-spss_summary">1.
 Create spss_summary()</a></li>
-<li><a href="#haven" id="toc-haven">1.2 haven</a></li>
-<li><a href="#expss" id="toc-expss">1.3. expss</a></li>
-<li><a href="#sjlabelled" id="toc-sjlabelled">1.4. sjlabelled</a></li>
-<li><a href="#foreign" id="toc-foreign">1.5. foreign</a></li>
-<li><a href="#object-size" id="toc-object-size">1.6. Object
-size</a></li>
+<li><a href="#test-spss_summary" id="toc-test-spss_summary">2. Test
+spss_summary()</a>
+<ul>
+<li><a href="#haven" id="toc-haven">2.1. haven</a></li>
+<li><a href="#expss" id="toc-expss">2.2. expss</a></li>
+<li><a href="#sjlabelled" id="toc-sjlabelled">2.3. sjlabelled</a></li>
+<li><a href="#foreign" id="toc-foreign">2.4. foreign</a></li>
 </ul></li>
 </ul>
 </div>
@@ -742,12 +741,8 @@ them:</strong></p>
 <br />
 </p>
 </div>
-<div id="first-look" class="section level2">
-<h2>1. First look</h2>
-<p><br />
-</p>
-<div id="create-spss_summary" class="section level3">
-<h3>1.1 Create spss_summary()</h3>
+<div id="create-spss_summary" class="section level2">
+<h2>1. Create spss_summary()</h2>
 <p><br />
 </p>
 <pre class="r"><code>spss_summary &lt;- function(data) {
@@ -815,8 +810,10 @@ them:</strong></p>
 <br />
 </p>
 </div>
+<div id="test-spss_summary" class="section level2">
+<h2>2. Test spss_summary()</h2>
 <div id="haven" class="section level3">
-<h3>1.2 haven</h3>
+<h3>2.1. haven</h3>
 <pre class="r"><code># haven
 spss_summary(ess_SPSS_haven) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
@@ -3368,7 +3365,7 @@ double
 </p>
 </div>
 <div id="expss" class="section level3">
-<h3>1.3. expss</h3>
+<h3>2.2. expss</h3>
 <pre class="r"><code>ess_SPSS_expss %&gt;%
   spss_summary() %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
@@ -5920,7 +5917,7 @@ double
 </p>
 </div>
 <div id="sjlabelled" class="section level3">
-<h3>1.4. sjlabelled</h3>
+<h3>2.3. sjlabelled</h3>
 <pre class="r"><code>ess_SPSS_sjlabelled %&gt;% 
   spss_summary() %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
@@ -8472,7 +8469,7 @@ double
 </p>
 </div>
 <div id="foreign" class="section level3">
-<h3>1.5. foreign</h3>
+<h3>2.4. foreign</h3>
 <pre class="r"><code># foreign
 spss_summary(ess_SPSS_foreign) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
@@ -11086,17 +11083,6 @@ integer
 <p><br />
 <br />
 </p>
-</div>
-<div id="object-size" class="section level3">
-<h3>1.6. Object size</h3>
-<pre class="r"><code>lobstr::obj_size(ess_SPSS_haven)</code></pre>
-<pre><code>## 8.19 MB</code></pre>
-<pre class="r"><code>lobstr::obj_size(ess_SPSS_expss)</code></pre>
-<pre><code>## 8.17 MB</code></pre>
-<pre class="r"><code>lobstr::obj_size(ess_SPSS_sjlabelled)</code></pre>
-<pre><code>## 5.21 MB</code></pre>
-<pre class="r"><code>lobstr::obj_size(ess_SPSS_foreign)</code></pre>
-<pre><code>## 5.02 MB</code></pre>
 </div>
 </div>
 

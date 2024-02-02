@@ -71,11 +71,7 @@ This lead to further consequences...
 \
 \
 
-## 1. First look
-
-\
-
-### 1.1 Create spss_summary()
+## 1. Create spss_summary()
 
 \
 ```{r message=FALSE, warning=FALSE}
@@ -147,7 +143,9 @@ spss_summary <- function(data) {
 \
 \
 
-### 1.2. haven
+## 2. Test spss_summary()
+
+### 2.1. haven
 ```{r message=FALSE, warning=FALSE}
 # haven
 spss_summary(ess_SPSS_haven) %>% 
@@ -161,7 +159,7 @@ spss_summary(ess_SPSS_haven) %>%
 \
 \
 
-### 1.3. expss
+### 2.2. expss
 ```{r message=FALSE, warning=FALSE}
 ess_SPSS_expss %>%
   spss_summary() %>% 
@@ -175,7 +173,7 @@ ess_SPSS_expss %>%
 \
 \
 
-### 1.4. sjlabelled
+### 2.3. sjlabelled
 ```{r message=FALSE, warning=FALSE}
 ess_SPSS_sjlabelled %>% 
   spss_summary() %>% 
@@ -189,7 +187,7 @@ ess_SPSS_sjlabelled %>%
 \
 \
 
-### 1.5. foreign
+### 2.4. foreign
 ```{r message=FALSE, warning=FALSE}
 # foreign
 spss_summary(ess_SPSS_foreign) %>% 
@@ -202,12 +200,3 @@ spss_summary(ess_SPSS_foreign) %>%
 
 \
 \
-
-### 1.6. Object size
-```{r message=FALSE, warning=FALSE}
-lobstr::obj_size(ess_SPSS_haven)
-lobstr::obj_size(ess_SPSS_expss)
-lobstr::obj_size(ess_SPSS_sjlabelled)
-lobstr::obj_size(ess_SPSS_foreign)
-```
-
