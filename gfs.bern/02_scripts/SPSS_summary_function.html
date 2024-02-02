@@ -11,7 +11,7 @@
 
 
 
-<title> gfs.bern - Template  </title>
+<title> gfs.bern - SPSS-Summary-Function  </title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -660,7 +660,8 @@ display: none;
 
 
 
-<h1 class="title toc-ignore"><br>gfs.bern - Template<br><br></h1>
+<h1 class="title toc-ignore"><br>gfs.bern -
+SPSS-Summary-Function<br><br></h1>
 
 </div>
 
@@ -761,7 +762,7 @@ them:</strong></p>
   value_labels &lt;- sjlabelled::get_labels(data) %&gt;% 
     map(., ~str_c(., collapse = &quot;, &quot;)) %&gt;% 
     map(., ~str_sub(., end = cut_value_labels)) %&gt;% 
-    unlist()  
+    unlist() 
   
   # 1.3. min value
   min_value &lt;- sjlabelled::as_numeric(data) %&gt;% 
@@ -823,8 +824,8 @@ them:</strong></p>
 <div id="haven" class="section level3">
 <h3>2.1. haven</h3>
 <pre class="r"><code>ess_SPSS_haven %&gt;% 
-  spss_summary(cut_value_labels = 25,
-               cut_value_range = 25) %&gt;% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
                             full_width = TRUE) %&gt;% 
@@ -892,7 +893,7 @@ Title of dataset
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-ESS1e06_7, ESS2e03_6, ESS
+ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 </td>
 <td style="text-align:right;">
 0
@@ -977,7 +978,7 @@ Edition
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-6.7, 3.6, 3.7, 4.6, 3.5,
+6.7, 3.6, 3.7, 4.6, 3.5, 2.6, 2.3, 3.2
 </td>
 <td style="text-align:right;">
 0
@@ -1020,7 +1021,7 @@ Production date
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-23.11.2023, 01.12.2018, 1
+23.11.2023, 01.12.2018, 14.11.2023, 02.11.2023
 </td>
 <td style="text-align:right;">
 0
@@ -1103,10 +1104,10 @@ cntry
 Country
 </td>
 <td style="text-align:left;">
-AL, AT, BE, BG, CH, CY, C
+AL, AT, BE, BG, CH, CY, CZ, DE, DK, EE, ES, FI, FR
 </td>
 <td style="text-align:left;">
-Albania, Austria, Belgium
+Albania, Austria, Belgium, Bulgaria, Switzerland,
 </td>
 <td style="text-align:right;">
 0
@@ -1441,10 +1442,10 @@ pplfair
 Most people try to take advantage of you, or try to be fair
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Most people try to take a
+Most people try to take advantage of me, 1, 2, 3,
 </td>
 <td style="text-align:right;">
 46
@@ -1485,10 +1486,10 @@ pplhlp
 Most of the time people helpful or mostly looking out for themselves
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-People mostly look out fo
+People mostly look out for themselves, 1, 2, 3, 4,
 </td>
 <td style="text-align:right;">
 37
@@ -1529,10 +1530,10 @@ ppltrst
 Most people can be trusted or you can’t be too careful
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-You can’t be too careful,
+You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 18
@@ -1573,10 +1574,10 @@ lrscale
 Placement on left right scale
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Left, 1, 2, 3, 4, 5, 6, 7
+Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 </td>
 <td style="text-align:right;">
 1172
@@ -1620,7 +1621,7 @@ Modern science can be relied on to solve environmental problems
 1, 2, 3, 4, 5, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Agree strongly, Agree, Ne
+Agree strongly, Agree, Neither agree nor disagree,
 </td>
 <td style="text-align:right;">
 7822
@@ -1661,10 +1662,10 @@ trstep
 Trust in the European Parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 1853
@@ -1705,10 +1706,10 @@ trstlgl
 Trust in the legal system
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 430
@@ -1749,10 +1750,10 @@ trstplc
 Trust in the police
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 79
@@ -1793,10 +1794,10 @@ trstplt
 Trust in politicians
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 513
@@ -1837,10 +1838,10 @@ trstprl
 Trust in country’s parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 848
@@ -1881,10 +1882,10 @@ trstprt
 Trust in political parties
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 2770
@@ -1925,10 +1926,10 @@ trstun
 Trust in the United Nations
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 1241
@@ -1969,10 +1970,10 @@ trstsci
 Trust in scientists
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 15453
@@ -2016,7 +2017,7 @@ Voted last national election
 1, 2, 3, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Yes, No, Not eligible to
+Yes, No, Not eligible to vote, Refusal, Don’t know
 </td>
 <td style="text-align:right;">
 3461
@@ -2060,7 +2061,7 @@ Allow many/few immigrants of same race/ethnic group as majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 432
@@ -2104,7 +2105,7 @@ Allow many/few immigrants of different race/ethnic group from majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 452
@@ -2148,7 +2149,7 @@ Allow many/few immigrants from poorer countries outside Europe
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 480
@@ -2189,10 +2190,10 @@ imbgeco
 Immigration bad or good for country’s economy
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Bad for the economy, 1, 2
+Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 </td>
 <td style="text-align:right;">
 354
@@ -2233,10 +2234,10 @@ imueclt
 Country’s cultural life undermined or enriched by immigrants
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Cultural life undermined,
+Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 261
@@ -2277,10 +2278,10 @@ imwbcnt
 Immigrants make country worse or better place to live
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Worse place to live, 1, 2
+Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 </td>
 <td style="text-align:right;">
 494
@@ -2324,7 +2325,7 @@ Number of people living regularly as member of household
 77, 88, 99
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 18
@@ -2497,10 +2498,10 @@ edulvla
 Highest level of education
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 55, 77,
+0, 1, 2, 3, 4, 5, 55, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Not possible to harmonise
+Not possible to harmonise into 5-level ISCED, Less
 </td>
 <td style="text-align:right;">
 9159
@@ -2544,7 +2545,7 @@ Important to try new and different things in life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 169
@@ -2588,7 +2589,7 @@ Important to care for nature and environment
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 109
@@ -2632,7 +2633,7 @@ Important to make own decisions and be free
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 144
@@ -2676,7 +2677,7 @@ Important to seek fun and things that give pleasure
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 147
@@ -2720,7 +2721,7 @@ Important to be rich, have money and expensive things
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 139
@@ -2764,7 +2765,7 @@ Important to live in secure and safe surroundings
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 159
@@ -2808,7 +2809,7 @@ Important to follow traditions and customs
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 145
@@ -2852,7 +2853,7 @@ Important to seek adventures and have an exciting life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 151
@@ -2896,7 +2897,7 @@ Important to behave properly
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 223
@@ -2940,7 +2941,7 @@ Important to think new ideas and being creative
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 185
@@ -2984,7 +2985,7 @@ Important that people are treated equally and have equal opportunities
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 183
@@ -3028,7 +3029,7 @@ Important to do what is told and follow rules
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 301
@@ -3072,7 +3073,7 @@ Important to have a good time
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 116
@@ -3116,7 +3117,7 @@ Important to help people and care for others well-being
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 135
@@ -3160,7 +3161,7 @@ Important to be loyal to friends and devote to people close
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 156
@@ -3204,7 +3205,7 @@ Important to be humble and modest, not draw attention
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 217
@@ -3248,7 +3249,7 @@ Important to get respect from others
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 405
@@ -3292,7 +3293,7 @@ Important to show abilities and be admired
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 189
@@ -3336,7 +3337,7 @@ Important that government is strong and ensures safety
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 394
@@ -3380,7 +3381,7 @@ Important to be successful and that people recognize achievements
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 186
@@ -3424,7 +3425,7 @@ Important to understand different people
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 158
@@ -3468,7 +3469,7 @@ Year of birth
 7777, 8888, 9999
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 40
@@ -3508,8 +3509,8 @@ double
 <div id="expss" class="section level3">
 <h3>2.2. expss</h3>
 <pre class="r"><code>ess_SPSS_expss %&gt;%
-  spss_summary(cut_value_labels = 25,
-               cut_value_range = 25) %&gt;% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
                             full_width = FALSE) %&gt;% 
@@ -3577,7 +3578,7 @@ Title of dataset
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-ESS1e06_7, ESS2e03_6, ESS
+ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 </td>
 <td style="text-align:right;">
 0
@@ -3662,7 +3663,7 @@ Edition
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-6.7, 3.6, 3.7, 4.6, 3.5,
+6.7, 3.6, 3.7, 4.6, 3.5, 2.6, 2.3, 3.2
 </td>
 <td style="text-align:right;">
 0
@@ -3705,7 +3706,7 @@ Production date
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-23.11.2023, 01.12.2018, 1
+23.11.2023, 01.12.2018, 14.11.2023, 02.11.2023
 </td>
 <td style="text-align:right;">
 0
@@ -3788,10 +3789,10 @@ cntry
 Country
 </td>
 <td style="text-align:left;">
-AL , AT , BE
+AL , AT , BE , BG , CH ,
 </td>
 <td style="text-align:left;">
-Albania, Austria, Belgium
+Albania, Austria, Belgium, Bulgaria, Switzerland,
 </td>
 <td style="text-align:right;">
 0
@@ -4126,10 +4127,10 @@ pplfair
 Most people try to take advantage of you, or try to be fair
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Most people try to take a
+Most people try to take advantage of me, 1, 2, 3,
 </td>
 <td style="text-align:right;">
 0
@@ -4170,10 +4171,10 @@ pplhlp
 Most of the time people helpful or mostly looking out for themselves
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-People mostly look out fo
+People mostly look out for themselves, 1, 2, 3, 4,
 </td>
 <td style="text-align:right;">
 0
@@ -4214,10 +4215,10 @@ ppltrst
 Most people can be trusted or you can’t be too careful
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-You can’t be too careful,
+You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 0
@@ -4258,10 +4259,10 @@ lrscale
 Placement on left right scale
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Left, 1, 2, 3, 4, 5, 6, 7
+Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 </td>
 <td style="text-align:right;">
 0
@@ -4305,7 +4306,7 @@ Modern science can be relied on to solve environmental problems
 1, 2, 3, 4, 5, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Agree strongly, Agree, Ne
+Agree strongly, Agree, Neither agree nor disagree,
 </td>
 <td style="text-align:right;">
 7615
@@ -4346,10 +4347,10 @@ trstep
 Trust in the European Parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4390,10 +4391,10 @@ trstlgl
 Trust in the legal system
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4434,10 +4435,10 @@ trstplc
 Trust in the police
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4478,10 +4479,10 @@ trstplt
 Trust in politicians
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4522,10 +4523,10 @@ trstprl
 Trust in country’s parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4566,10 +4567,10 @@ trstprt
 Trust in political parties
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 2040
@@ -4610,10 +4611,10 @@ trstun
 Trust in the United Nations
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -4654,10 +4655,10 @@ trstsci
 Trust in scientists
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 15402
@@ -4701,7 +4702,7 @@ Voted last national election
 1, 2, 3, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Yes, No, Not eligible to
+Yes, No, Not eligible to vote, Refusal, Don’t know
 </td>
 <td style="text-align:right;">
 0
@@ -4745,7 +4746,7 @@ Allow many/few immigrants of same race/ethnic group as majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -4789,7 +4790,7 @@ Allow many/few immigrants of different race/ethnic group from majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -4833,7 +4834,7 @@ Allow many/few immigrants from poorer countries outside Europe
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -4874,10 +4875,10 @@ imbgeco
 Immigration bad or good for country’s economy
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Bad for the economy, 1, 2
+Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 </td>
 <td style="text-align:right;">
 0
@@ -4918,10 +4919,10 @@ imueclt
 Country’s cultural life undermined or enriched by immigrants
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Cultural life undermined,
+Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 0
@@ -4962,10 +4963,10 @@ imwbcnt
 Immigrants make country worse or better place to live
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Worse place to live, 1, 2
+Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 </td>
 <td style="text-align:right;">
 0
@@ -5009,7 +5010,7 @@ Number of people living regularly as member of household
 77, 88, 99
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 0
@@ -5182,10 +5183,10 @@ edulvla
 Highest level of education
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 55, 77,
+0, 1, 2, 3, 4, 5, 55, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Not possible to harmonise
+Not possible to harmonise into 5-level ISCED, Less
 </td>
 <td style="text-align:right;">
 9121
@@ -5229,7 +5230,7 @@ Important to try new and different things in life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5273,7 +5274,7 @@ Important to care for nature and environment
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5317,7 +5318,7 @@ Important to make own decisions and be free
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5361,7 +5362,7 @@ Important to seek fun and things that give pleasure
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5405,7 +5406,7 @@ Important to be rich, have money and expensive things
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5449,7 +5450,7 @@ Important to live in secure and safe surroundings
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5493,7 +5494,7 @@ Important to follow traditions and customs
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5537,7 +5538,7 @@ Important to seek adventures and have an exciting life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5581,7 +5582,7 @@ Important to behave properly
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5625,7 +5626,7 @@ Important to think new ideas and being creative
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5669,7 +5670,7 @@ Important that people are treated equally and have equal opportunities
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5713,7 +5714,7 @@ Important to do what is told and follow rules
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5757,7 +5758,7 @@ Important to have a good time
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5801,7 +5802,7 @@ Important to help people and care for others well-being
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5845,7 +5846,7 @@ Important to be loyal to friends and devote to people close
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5889,7 +5890,7 @@ Important to be humble and modest, not draw attention
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5933,7 +5934,7 @@ Important to get respect from others
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -5977,7 +5978,7 @@ Important to show abilities and be admired
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -6021,7 +6022,7 @@ Important that government is strong and ensures safety
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -6065,7 +6066,7 @@ Important to be successful and that people recognize achievements
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -6109,7 +6110,7 @@ Important to understand different people
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -6153,7 +6154,7 @@ Year of birth
 7777, 8888, 9999
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 0
@@ -6193,8 +6194,8 @@ double
 <div id="sjlabelled" class="section level3">
 <h3>2.3. sjlabelled</h3>
 <pre class="r"><code>ess_SPSS_sjlabelled %&gt;% 
-  spss_summary(cut_value_labels = 25,
-               cut_value_range = 25) %&gt;% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
                             full_width = FALSE) %&gt;% 
@@ -6262,7 +6263,7 @@ Title of dataset
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-ESS1e06_7, ESS2e03_6, ESS
+ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 </td>
 <td style="text-align:right;">
 0
@@ -6347,7 +6348,7 @@ Edition
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-6.7, 3.6, 3.7, 4.6, 3.5,
+6.7, 3.6, 3.7, 4.6, 3.5, 2.6, 2.3, 3.2
 </td>
 <td style="text-align:right;">
 0
@@ -6390,7 +6391,7 @@ Production date
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-23.11.2023, 01.12.2018, 1
+23.11.2023, 01.12.2018, 14.11.2023, 02.11.2023
 </td>
 <td style="text-align:right;">
 0
@@ -6473,10 +6474,10 @@ cntry
 Country
 </td>
 <td style="text-align:left;">
-AL, AT, BE, BG, CH, CY, C
+AL, AT, BE, BG, CH, CY, CZ, DE, DK, EE, ES, FI, FR
 </td>
 <td style="text-align:left;">
-Albania, Austria, Belgium
+Albania, Austria, Belgium, Bulgaria, Switzerland,
 </td>
 <td style="text-align:right;">
 0
@@ -6811,10 +6812,10 @@ pplfair
 Most people try to take advantage of you, or try to be fair
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Most people try to take a
+Most people try to take advantage of me, 1, 2, 3,
 </td>
 <td style="text-align:right;">
 46
@@ -6855,10 +6856,10 @@ pplhlp
 Most of the time people helpful or mostly looking out for themselves
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-People mostly look out fo
+People mostly look out for themselves, 1, 2, 3, 4,
 </td>
 <td style="text-align:right;">
 37
@@ -6899,10 +6900,10 @@ ppltrst
 Most people can be trusted or you can’t be too careful
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-You can’t be too careful,
+You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 18
@@ -6943,10 +6944,10 @@ lrscale
 Placement on left right scale
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Left, 1, 2, 3, 4, 5, 6, 7
+Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 </td>
 <td style="text-align:right;">
 1172
@@ -6990,7 +6991,7 @@ Modern science can be relied on to solve environmental problems
 1, 2, 3, 4, 5, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Agree strongly, Agree, Ne
+Agree strongly, Agree, Neither agree nor disagree,
 </td>
 <td style="text-align:right;">
 7822
@@ -7031,10 +7032,10 @@ trstep
 Trust in the European Parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 1853
@@ -7075,10 +7076,10 @@ trstlgl
 Trust in the legal system
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 430
@@ -7119,10 +7120,10 @@ trstplc
 Trust in the police
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 79
@@ -7163,10 +7164,10 @@ trstplt
 Trust in politicians
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 513
@@ -7207,10 +7208,10 @@ trstprl
 Trust in country’s parliament
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 848
@@ -7251,10 +7252,10 @@ trstprt
 Trust in political parties
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 2770
@@ -7295,10 +7296,10 @@ trstun
 Trust in the United Nations
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 1241
@@ -7339,10 +7340,10 @@ trstsci
 Trust in scientists
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 15453
@@ -7386,7 +7387,7 @@ Voted last national election
 1, 2, 3, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Yes, No, Not eligible to
+Yes, No, Not eligible to vote, Refusal, Don’t know
 </td>
 <td style="text-align:right;">
 3461
@@ -7430,7 +7431,7 @@ Allow many/few immigrants of same race/ethnic group as majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 432
@@ -7474,7 +7475,7 @@ Allow many/few immigrants of different race/ethnic group from majority
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 452
@@ -7518,7 +7519,7 @@ Allow many/few immigrants from poorer countries outside Europe
 1, 2, 3, 4, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 480
@@ -7559,10 +7560,10 @@ imbgeco
 Immigration bad or good for country’s economy
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Bad for the economy, 1, 2
+Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 </td>
 <td style="text-align:right;">
 354
@@ -7603,10 +7604,10 @@ imueclt
 Country’s cultural life undermined or enriched by immigrants
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Cultural life undermined,
+Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 261
@@ -7647,10 +7648,10 @@ imwbcnt
 Immigrants make country worse or better place to live
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 6, 7, 8
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Worse place to live, 1, 2
+Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 </td>
 <td style="text-align:right;">
 494
@@ -7694,7 +7695,7 @@ Number of people living regularly as member of household
 77, 88, 99
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 18
@@ -7867,10 +7868,10 @@ edulvla
 Highest level of education
 </td>
 <td style="text-align:left;">
-0, 1, 2, 3, 4, 5, 55, 77,
+0, 1, 2, 3, 4, 5, 55, 77, 88, 99
 </td>
 <td style="text-align:left;">
-Not possible to harmonise
+Not possible to harmonise into 5-level ISCED, Less
 </td>
 <td style="text-align:right;">
 9159
@@ -7914,7 +7915,7 @@ Important to try new and different things in life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 169
@@ -7958,7 +7959,7 @@ Important to care for nature and environment
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 109
@@ -8002,7 +8003,7 @@ Important to make own decisions and be free
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 144
@@ -8046,7 +8047,7 @@ Important to seek fun and things that give pleasure
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 147
@@ -8090,7 +8091,7 @@ Important to be rich, have money and expensive things
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 139
@@ -8134,7 +8135,7 @@ Important to live in secure and safe surroundings
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 159
@@ -8178,7 +8179,7 @@ Important to follow traditions and customs
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 145
@@ -8222,7 +8223,7 @@ Important to seek adventures and have an exciting life
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 151
@@ -8266,7 +8267,7 @@ Important to behave properly
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 223
@@ -8310,7 +8311,7 @@ Important to think new ideas and being creative
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 185
@@ -8354,7 +8355,7 @@ Important that people are treated equally and have equal opportunities
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 183
@@ -8398,7 +8399,7 @@ Important to do what is told and follow rules
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 301
@@ -8442,7 +8443,7 @@ Important to have a good time
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 116
@@ -8486,7 +8487,7 @@ Important to help people and care for others well-being
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 135
@@ -8530,7 +8531,7 @@ Important to be loyal to friends and devote to people close
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 156
@@ -8574,7 +8575,7 @@ Important to be humble and modest, not draw attention
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 217
@@ -8618,7 +8619,7 @@ Important to get respect from others
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 405
@@ -8662,7 +8663,7 @@ Important to show abilities and be admired
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 189
@@ -8706,7 +8707,7 @@ Important that government is strong and ensures safety
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 394
@@ -8750,7 +8751,7 @@ Important to be successful and that people recognize achievements
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 186
@@ -8794,7 +8795,7 @@ Important to understand different people
 1, 2, 3, 4, 5, 6, 7, 8, 9
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 158
@@ -8838,7 +8839,7 @@ Year of birth
 7777, 8888, 9999
 </td>
 <td style="text-align:left;">
-Refusal, Don’t know, No a
+Refusal, Don’t know, No answer
 </td>
 <td style="text-align:right;">
 40
@@ -8879,8 +8880,8 @@ double
 <h3>2.4. foreign</h3>
 <pre class="r"><code># foreign
 ess_SPSS_foreign %&gt;% 
-  spss_summary(cut_value_labels = 25,
-               cut_value_range = 25) %&gt;% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
                             full_width = FALSE) %&gt;% 
@@ -8947,7 +8948,7 @@ name
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-ESS1e06_7 , ESS2e03_6 , E
+ESS1e06_7 , ESS2e03_6 , ESS3e03_7 , ESS4e04_6 , ES
 </td>
 <td style="text-align:right;">
 0
@@ -9030,7 +9031,7 @@ edition
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-6.7, 3.6, 3.7, 4.6, 3.5,
+6.7, 3.6, 3.7, 4.6, 3.5, 2.6, 2.3, 3.2
 </td>
 <td style="text-align:right;">
 0
@@ -9072,7 +9073,7 @@ proddate
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-23.11.2023, 01.12.2018, 1
+23.11.2023, 01.12.2018, 14.11.2023, 02.11.2023
 </td>
 <td style="text-align:right;">
 0
@@ -9155,7 +9156,7 @@ cntry
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Albania, Austria, Belgium
+Albania, Austria, Belgium, Bulgaria, Switzerland,
 </td>
 <td style="text-align:right;">
 0
@@ -9484,7 +9485,7 @@ pplfair
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Most people try to take a
+Most people try to take advantage of me, 1, 2, 3,
 </td>
 <td style="text-align:right;">
 0
@@ -9526,7 +9527,7 @@ pplhlp
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-People mostly look out fo
+People mostly look out for themselves, 1, 2, 3, 4,
 </td>
 <td style="text-align:right;">
 0
@@ -9568,7 +9569,7 @@ ppltrst
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-You can’t be too careful,
+You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 0
@@ -9610,7 +9611,7 @@ lrscale
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Left, 1, 2, 3, 4, 5, 6, 7
+Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 </td>
 <td style="text-align:right;">
 0
@@ -9652,7 +9653,7 @@ scnsenv
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Agree strongly, Agree, Ne
+Agree strongly, Agree, Neither agree nor disagree,
 </td>
 <td style="text-align:right;">
 7615
@@ -9694,7 +9695,7 @@ trstep
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9736,7 +9737,7 @@ trstlgl
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9778,7 +9779,7 @@ trstplc
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9820,7 +9821,7 @@ trstplt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9862,7 +9863,7 @@ trstprl
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9904,7 +9905,7 @@ trstprt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 2040
@@ -9946,7 +9947,7 @@ trstun
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 0
@@ -9988,7 +9989,7 @@ trstsci
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-No trust at all, 1, 2, 3,
+No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 </td>
 <td style="text-align:right;">
 15402
@@ -10030,7 +10031,7 @@ vote
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Yes, No, Not eligible to
+Yes, No, Not eligible to vote, Refusal, Don’t know
 </td>
 <td style="text-align:right;">
 0
@@ -10072,7 +10073,7 @@ imsmetn
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -10114,7 +10115,7 @@ imdfetn
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -10156,7 +10157,7 @@ impcntr
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Allow many to come and li
+Allow many to come and live here, Allow some, Allo
 </td>
 <td style="text-align:right;">
 0
@@ -10198,7 +10199,7 @@ imbgeco
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Bad for the economy, 1, 2
+Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 </td>
 <td style="text-align:right;">
 0
@@ -10240,7 +10241,7 @@ imueclt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Cultural life undermined,
+Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 </td>
 <td style="text-align:right;">
 0
@@ -10282,7 +10283,7 @@ imwbcnt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Worse place to live, 1, 2
+Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 </td>
 <td style="text-align:right;">
 0
@@ -10324,7 +10325,7 @@ hhmmb
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-1, 2, 3, 4, 5, 6, 7, 8, 9
+1, 2, 3, 4, 5, 6, 7, 8, 9, Refusal, Don’t know, No
 </td>
 <td style="text-align:right;">
 0
@@ -10408,7 +10409,7 @@ age
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-14.9200000762939, 15, 15.
+14.9200000762939, 15, 15.1700000762939, 15.25, 15.
 </td>
 <td style="text-align:right;">
 15121
@@ -10450,7 +10451,7 @@ agea
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-14, 15, 16, 17, 18, 19, 2
+14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26
 </td>
 <td style="text-align:right;">
 0
@@ -10492,7 +10493,7 @@ edulvla
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Not possible to harmonise
+Not possible to harmonise into 5-level ISCED, Less
 </td>
 <td style="text-align:right;">
 9121
@@ -10534,7 +10535,7 @@ impdiff
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10576,7 +10577,7 @@ impenv
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10618,7 +10619,7 @@ impfree
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10660,7 +10661,7 @@ impfun
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10702,7 +10703,7 @@ imprich
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10744,7 +10745,7 @@ impsafe
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10786,7 +10787,7 @@ imptrad
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10828,7 +10829,7 @@ ipadvnt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10870,7 +10871,7 @@ ipbhprp
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10912,7 +10913,7 @@ ipcrtiv
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10954,7 +10955,7 @@ ipeqopt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -10996,7 +10997,7 @@ ipfrule
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11038,7 +11039,7 @@ ipgdtim
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11080,7 +11081,7 @@ iphlppl
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11122,7 +11123,7 @@ iplylfr
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11164,7 +11165,7 @@ ipmodst
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11206,7 +11207,7 @@ iprspot
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11248,7 +11249,7 @@ ipshabt
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11290,7 +11291,7 @@ ipstrgv
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11332,7 +11333,7 @@ ipsuces
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11374,7 +11375,7 @@ ipudrst
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-Very much like me, Like m
+Very much like me, Like me, Somewhat like me, A li
 </td>
 <td style="text-align:right;">
 0
@@ -11416,7 +11417,7 @@ yrbrn
 <td style="text-align:left;">
 </td>
 <td style="text-align:left;">
-1900, 1907, 1909, 1910, 1
+1900, 1907, 1909, 1910, 1911, 1912, 1913, 1914, 19
 </td>
 <td style="text-align:right;">
 0

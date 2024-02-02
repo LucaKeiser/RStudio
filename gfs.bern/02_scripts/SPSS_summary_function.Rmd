@@ -1,5 +1,5 @@
 ---
-title: "<br>gfs.bern - Template<br><br>"
+title: "<br>gfs.bern - SPSS-Summary-Function<br><br>"
 output: 
   html_document:
     toc: yes
@@ -74,19 +74,24 @@ ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
 \
 ```{r message=FALSE, warning=FALSE}
 
-spss_summary <- function(data) {
+spss_summary <- function(data,
+                         cut_value_range = 9999,
+                         cut_value_labels = 9999,
+                         histogram_bins = 7) {
   
   ### 1. create summary-variables
   
   # 1.1. value range
   value_range <- sjlabelled::get_values(data) %>% 
-    map(., ~str_c(., collapse = ",\n")) %>% 
+    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_sub(., end = cut_value_range)) %>%
     unlist()
   
   # 1.2. value labels
   value_labels <- sjlabelled::get_labels(data) %>% 
-    map(., ~str_c(., collapse = ",\n")) %>% 
-    unlist()
+    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_sub(., end = cut_value_labels)) %>% 
+    unlist() 
   
   # 1.3. min value
   min_value <- sjlabelled::as_numeric(data) %>% 
@@ -108,16 +113,19 @@ spss_summary <- function(data) {
     map_dbl(., ~max(., na.rm = TRUE)) %>% 
     round(0)
   
-  # 1.7. variable_class
+  # 1.7. histogram
+  histogram <- sjlabelled::as_numeric(data)
+  histogram <- map(histogram, ~table(cut(., histogram_bins)))
+  histogram <- map(histogram, ~./max(.))
+  
+  
+  # 1.8. variable_class
   variable_class <- map(data, class) %>% 
-    map(., ~str_c(., collapse = ",\n")) %>% 
+    map(., ~str_c(., collapse = ", ")) %>% 
     unlist()
   
   
   ### 2. create tibble
-  
-  message("Please make check missing values/NAs")
-  
   tibble(
     orignial_order = 1:ncol(data),
     variable_name = names(data),
@@ -130,6 +138,7 @@ spss_summary <- function(data) {
     median_value = median_value,
     mean_value = mean_value,
     max_value = max_value,
+    histogram = map(histogram, cli::spark_bar),
     variable_class = variable_class,
     variable_type = map_chr(data, typeof)
   )
@@ -145,11 +154,12 @@ spss_summary <- function(data) {
 
 ### 2.1. haven
 ```{r message=FALSE, warning=FALSE}
-# haven
-spss_summary(ess_SPSS_haven) %>% 
+ess_SPSS_haven %>% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %>% 
   knitr::kable(format = "html") %>% 
   kableExtra::kable_styling(bootstrap_options = "bordered", 
-                            full_width = FALSE) %>% 
+                            full_width = TRUE) %>% 
   kableExtra::scroll_box(width = "910px", 
                          height = "600px")
 ```
@@ -160,7 +170,8 @@ spss_summary(ess_SPSS_haven) %>%
 ### 2.2. expss
 ```{r message=FALSE, warning=FALSE}
 ess_SPSS_expss %>%
-  spss_summary() %>% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %>% 
   knitr::kable(format = "html") %>% 
   kableExtra::kable_styling(bootstrap_options = "bordered", 
                             full_width = FALSE) %>% 
@@ -174,7 +185,8 @@ ess_SPSS_expss %>%
 ### 2.3. sjlabelled
 ```{r message=FALSE, warning=FALSE}
 ess_SPSS_sjlabelled %>% 
-  spss_summary() %>% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %>% 
   knitr::kable(format = "html") %>% 
   kableExtra::kable_styling(bootstrap_options = "bordered", 
                             full_width = FALSE) %>% 
@@ -188,7 +200,9 @@ ess_SPSS_sjlabelled %>%
 ### 2.4. foreign
 ```{r message=FALSE, warning=FALSE}
 # foreign
-spss_summary(ess_SPSS_foreign) %>% 
+ess_SPSS_foreign %>% 
+  spss_summary(cut_value_labels = 50,
+               cut_value_range = 50) %>% 
   knitr::kable(format = "html") %>% 
   kableExtra::kable_styling(bootstrap_options = "bordered", 
                             full_width = FALSE) %>% 
