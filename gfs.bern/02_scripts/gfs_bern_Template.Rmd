@@ -65,8 +65,6 @@ ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
 * sjlabelled: factors
 * foreign: factors
 
-This lead to further consequences...
-
 \
 \
 \
