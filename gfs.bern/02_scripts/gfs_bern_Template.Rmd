@@ -30,35 +30,42 @@ theme_set(theme_minimal())
 
 ## Data
 ```{r message=FALSE, warning=FALSE}
-# 1. foreign
-ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
-                                                  "01_data",
-                                                  "ESS_subset.sav"),
-                                       use.value.labels = TRUE) %>% 
-  as_tibble()
-
-# 2. haven
+# 1. haven
 ess_SPSS_haven <- haven::read_sav(here::here("gfs.bern",
                                              "01_data",
                                              "ESS_subset.sav"))
 
-# 3. expss
+# 2. expss
 ess_SPSS_expss <- expss::read_spss(here::here("gfs.bern",
                                               "01_data",
                                               "ESS_subset.sav")) %>% 
   as_tibble()
 
-# 4. sjlabelled
+# 3. sjlabelled
 ess_SPSS_sjlabelled <- sjlabelled::read_spss(here::here("gfs.bern",
-                                              "01_data",
-                                              "ESS_subset.sav")) %>% 
+                                                        "01_data",
+                                                        "ESS_subset.sav")) %>% 
   as_tibble()
 
-# 4. readr
-ess_CSV_readr <- readr::read_csv(here::here("gfs.bern",
-                                            "01_data",
-                                            "ESS_subset.csv"))
+# 4. foreign
+ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
+                                                  "01_data",
+                                                  "ESS_subset.sav"),
+                                       use.value.labels = TRUE) %>% 
+  as_tibble()
 ```
+
+\
+\
+
+**Variable types depend on the package you choose to read them:**
+
+* haven: dbl + lbl
+* expss: labelled
+* sjlabelled: factors
+* foreign: factors
+
+This lead to further consequences...
 
 \
 \
@@ -68,178 +75,139 @@ ess_CSV_readr <- readr::read_csv(here::here("gfs.bern",
 
 \
 
-### 1.1. View and skimr::skim()
+### 1.1 Create spss_summary()
 
 \
-
-#### foreign
 ```{r message=FALSE, warning=FALSE}
-ess_SPSS_foreign
-ess_SPSS_foreign %>% 
-  skimr::skim()
+
+spss_summary <- function(data) {
+  
+  ### 1. create summary-variables
+  
+  # 1.1. value range
+  value_range <- sjlabelled::get_values(data) %>% 
+    map(., ~str_c(., collapse = ",\n")) %>% 
+    unlist()
+  
+  # 1.2. value labels
+  value_labels <- sjlabelled::get_labels(data) %>% 
+    map(., ~str_c(., collapse = ",\n")) %>% 
+    unlist()
+  
+  # 1.3. min value
+  min_value <- sjlabelled::as_numeric(data) %>% 
+    map_dbl(., ~min(., na.rm = TRUE)) %>% 
+    round(0)
+  
+  # 1.4. median value
+  median_value <- sjlabelled::as_numeric(data) %>% 
+    map_dbl(., ~median(., na.rm = TRUE)) %>% 
+    round(2)
+  
+  # 1.5. mean value
+  mean_value <- sjlabelled::as_numeric(data) %>% 
+    map_dbl(., ~mean(., na.rm = TRUE)) %>% 
+    round(2)
+  
+  # 1.6. max value
+  max_value <- sjlabelled::as_numeric(data) %>% 
+    map_dbl(., ~max(., na.rm = TRUE)) %>% 
+    round(0)
+  
+  # 1.7. variable_class
+  variable_class <- map(data, class) %>% 
+    map(., ~str_c(., collapse = ",\n")) %>% 
+    unlist()
+  
+  
+  ### 2. create tibble
+  
+  message("Please make check missing values/NAs")
+  
+  tibble(
+    orignial_order = 1:ncol(data),
+    variable_name = names(data),
+    variable_label = sjlabelled::get_label(data),
+    value_range = value_range,
+    value_labels = value_labels,
+    number_NAs = map_dbl(data, ~sum(is.na(.))),
+    percent_NAs = round((number_NAs / nrow(data)) * 100, 2),
+    min_value = min_value,
+    median_value = median_value,
+    mean_value = mean_value,
+    max_value = max_value,
+    variable_class = variable_class,
+    variable_type = map_chr(data, typeof)
+  )
+  
+}
+
 ```
 
 \
 \
 
-#### haven
+### 1.2. haven
 ```{r message=FALSE, warning=FALSE}
-ess_SPSS_haven
-ess_SPSS_haven %>%
-  skimr::skim()
+# haven
+spss_summary(ess_SPSS_haven) %>% 
+  knitr::kable(format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = "bordered", 
+                            full_width = FALSE) %>% 
+  kableExtra::scroll_box(width = "910px", 
+                         height = "600px")
 ```
 
 \
 \
 
-#### expss
+### 1.3. expss
 ```{r message=FALSE, warning=FALSE}
-ess_SPSS_expss
-# ess_SPSS_expss %>% 
-#   skimr::skim()
+ess_SPSS_expss %>%
+  spss_summary() %>% 
+  knitr::kable(format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = "bordered", 
+                            full_width = FALSE) %>% 
+  kableExtra::scroll_box(width = "910px", 
+                         height = "600px")
 ```
 
 \
 \
 
-#### sjlabelled
+### 1.4. sjlabelled
 ```{r message=FALSE, warning=FALSE}
-ess_SPSS_sjlabelled
 ess_SPSS_sjlabelled %>% 
-  skimr::skim()
+  spss_summary() %>% 
+  knitr::kable(format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = "bordered", 
+                            full_width = FALSE) %>% 
+  kableExtra::scroll_box(width = "910px", 
+                         height = "600px")
 ```
 
 \
 \
 
-#### readr
+### 1.5. foreign
 ```{r message=FALSE, warning=FALSE}
-ess_CSV_readr
-ess_CSV_readr %>% 
-  skimr::skim()
-```
-
-\
-
-Variable types depend on the package you choose to read them:
-
-* foreign: factors
-* haven: dbl + lbl
-* expss: labelled (skimr::skim() does not work)
-* sjlabelled: factors (histogram does not work)
-* readr: numeric
-
-This lead to further consequences...:
-
-\
-\
-\
-
-### 1.2. Type and class
-
-\
-
-#### foreign
-```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-typeof(ess_SPSS_foreign$agea)
-class(ess_SPSS_foreign$agea)
-
-ess_SPSS_foreign %>% 
-  head(10) %>% 
-  pull(agea)
-
-ess_SPSS_foreign %>% 
-  ggplot(aes(agea, lrscale)) + 
-  geom_point() +
-  labs(title = "\nforeign\n")
+# foreign
+spss_summary(ess_SPSS_foreign) %>% 
+  knitr::kable(format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = "bordered", 
+                            full_width = FALSE) %>% 
+  kableExtra::scroll_box(width = "910px", 
+                         height = "600px")
 ```
 
 \
 \
 
-#### haven
-```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-typeof(ess_SPSS_haven$agea)
-class(ess_SPSS_haven$agea)
-
-ess_SPSS_haven %>% 
-  head(10) %>% 
-  pull(agea)
-
-ess_SPSS_haven %>% 
-  ggplot(aes(agea, lrscale)) + 
-  geom_point() +
-  labs(title = "\nhaven\n")
-```
-
-\
-\
-
-#### expss
-```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-typeof(ess_SPSS_expss$agea)
-class(ess_SPSS_expss$agea)
-
-ess_SPSS_expss %>% 
-  head(10) %>% 
-  pull(agea)
-
-ess_SPSS_expss %>% 
-  ggplot(aes(agea, lrscale)) + 
-  geom_point() +
-  labs(title = "\nexpss\n")
-```
-
-\
-\
-
-#### sjlabelled
-```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-typeof(ess_SPSS_sjlabelled$agea)
-class(ess_SPSS_sjlabelled$agea)
-
-ess_SPSS_sjlabelled %>% 
-  head(10) %>% 
-  pull(agea)
-
-ess_SPSS_sjlabelled %>% 
-  ggplot(aes(agea, lrscale)) + 
-  geom_point() +
-  labs(title = "\nsjlabelled\n")
-```
-
-\
-\
-
-#### readr
-```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
-typeof(ess_CSV_readr$agea)
-class(ess_CSV_readr$agea)
-
-ess_CSV_readr %>% 
-  head(10) %>% 
-  pull(agea)
-
-ess_CSV_readr %>% 
-  ggplot(aes(agea, lrscale)) + 
-  geom_point() +
-  labs(title = "\nreadr\n")
-```
-
-\
-\
-\
-
-### 1.3. Object size
-
-\
-
-Also the object size differs:
+### 1.6. Object size
 ```{r message=FALSE, warning=FALSE}
-lobstr::obj_size(ess_SPSS_foreign)
 lobstr::obj_size(ess_SPSS_haven)
 lobstr::obj_size(ess_SPSS_expss)
 lobstr::obj_size(ess_SPSS_sjlabelled)
-lobstr::obj_size(ess_CSV_readr)
+lobstr::obj_size(ess_SPSS_foreign)
 ```
 
