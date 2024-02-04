@@ -746,73 +746,127 @@ them:</strong></p>
 <p><br />
 </p>
 <pre class="r"><code>spss_summary &lt;- function(data,
+                         view = TRUE,
                          cut_value_range = 9999,
                          cut_value_labels = 9999,
-                         histogram_bins = 7) {
+                         histogram_bins = 5) {
+  
+  
+  # prepare data
+  data_set_name &lt;- substitute(data)
+  data_filtered &lt;- data %&gt;% 
+    janitor::remove_empty(which = &quot;cols&quot;)
+  
   
   ### 1. create summary-variables
   
   # 1.1. value range
-  value_range &lt;- sjlabelled::get_values(data) %&gt;% 
+  value_range &lt;- sjlabelled::get_values(data_filtered) %&gt;% 
     map(., ~str_c(., collapse = &quot;, &quot;)) %&gt;% 
     map(., ~str_sub(., end = cut_value_range)) %&gt;%
     unlist()
   
   # 1.2. value labels
-  value_labels &lt;- sjlabelled::get_labels(data) %&gt;% 
+  value_labels &lt;- sjlabelled::get_labels(data_filtered) %&gt;% 
     map(., ~str_c(., collapse = &quot;, &quot;)) %&gt;% 
     map(., ~str_sub(., end = cut_value_labels)) %&gt;% 
     unlist() 
   
   # 1.3. min value
-  min_value &lt;- sjlabelled::as_numeric(data) %&gt;% 
+  min_value &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
     map_dbl(., ~min(., na.rm = TRUE)) %&gt;% 
-    round(0)
+    round(2)
   
-  # 1.4. median value
-  median_value &lt;- sjlabelled::as_numeric(data) %&gt;% 
+  # 1.4. first quartile
+  q25 &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
+    map_dbl(., ~quantile(., 0.25, 
+                         na.rm = TRUE)) %&gt;% 
+    round(2)
+  
+  # 1.5. second quartile (median)
+  q50_median &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
     map_dbl(., ~median(., na.rm = TRUE)) %&gt;% 
     round(2)
   
-  # 1.5. mean value
-  mean_value &lt;- sjlabelled::as_numeric(data) %&gt;% 
+  # 1.6. mean value
+  mean_value &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
     map_dbl(., ~mean(., na.rm = TRUE)) %&gt;% 
     round(2)
   
-  # 1.6. max value
-  max_value &lt;- sjlabelled::as_numeric(data) %&gt;% 
-    map_dbl(., ~max(., na.rm = TRUE)) %&gt;% 
-    round(0)
+  # 1.7. third quartile 
+  q75 &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
+    map_dbl(., ~quantile(., 0.75, 
+                         na.rm = TRUE)) %&gt;% 
+    round(2)
   
-  # 1.7. histogram
-  histogram &lt;- sjlabelled::as_numeric(data)
+  # 1.8. max value
+  max_value &lt;- sjlabelled::as_numeric(data_filtered) %&gt;% 
+    map_dbl(., ~max(., na.rm = TRUE)) %&gt;% 
+    round(2)
+  
+  # 1.9. histogram
+  histogram &lt;- sjlabelled::as_numeric(data_filtered)
   histogram &lt;- map(histogram, ~table(cut(., histogram_bins)))
   histogram &lt;- map(histogram, ~./max(.))
   
-  
-  # 1.8. variable_class
-  variable_class &lt;- map(data, class) %&gt;% 
+  # 1.10. variable_class
+  variable_class &lt;- map(data_filtered, class) %&gt;% 
     map(., ~str_c(., collapse = &quot;, &quot;)) %&gt;% 
     unlist()
   
   
   ### 2. create tibble
-  tibble(
-    orignial_order = 1:ncol(data),
-    variable_name = names(data),
-    variable_label = sjlabelled::get_label(data),
+  tibble &lt;- tibble(
+    orignial_order = 1:ncol(data_filtered),
+    variable_name = names(data_filtered),
+    variable_label = sjlabelled::get_label(data_filtered),
     value_range = value_range,
     value_labels = value_labels,
-    number_NAs = map_dbl(data, ~sum(is.na(.))),
-    percent_NAs = round((number_NAs / nrow(data)) * 100, 2),
+    number_NAs = map_dbl(data_filtered, ~sum(is.na(.))),
+    percent_NAs = round((number_NAs / nrow(data_filtered)) * 100, 2),
     min_value = min_value,
-    median_value = median_value,
+    q25 = q25,
+    q50_median = q50_median,
+    q75 = q75,
     mean_value = mean_value,
     max_value = max_value,
     histogram = map(histogram, cli::spark_bar),
     variable_class = variable_class,
-    variable_type = map_chr(data, typeof)
+    variable_type = map_chr(data_filtered, typeof)
   )
+  
+  ### 3. show result
+  
+  # 3.1. view()
+  if(view == TRUE){
+    
+    if(ncol(data_filtered) != ncol(data)) {
+      
+      removed_cols &lt;- setdiff(names(data), names(data_filtered)) %&gt;% 
+        str_c(collapse = &quot;, &quot;)
+      
+      message(glue(&quot;NOTE: The following colimns have been removed (no valid observations):{removed_cols}.&quot;))
+      
+    }
+    
+    View(tibble,
+         title = as.character(data_set_name))
+    
+  # 3.2. print()
+  } else{
+    
+    if(ncol(data_filtered) != ncol(data)) {
+      
+      removed_cols &lt;- setdiff(names(data), names(data_filtered)) %&gt;% 
+        str_c(collapse = &quot;, &quot;)
+      
+      message(glue(&quot;NOTE: The following colimns have been removed (no valid observations):{removed_cols}.&quot;))
+      
+    }
+    
+    return(tibble)
+    
+  }
   
 }</code></pre>
 <p><br />
@@ -824,7 +878,8 @@ them:</strong></p>
 <div id="haven" class="section level3">
 <h3>2.1. haven</h3>
 <pre class="r"><code>ess_SPSS_haven %&gt;% 
-  spss_summary(cut_value_labels = 50,
+  spss_summary(view = FALSE,
+               cut_value_labels = 50,
                cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
@@ -860,7 +915,13 @@ percent_NAs
 min_value
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
-median_value
+q25
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q50_median
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q75
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
 mean_value
@@ -902,19 +963,25 @@ ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.27
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▅▅█▄▄▇
+██▇▇▇
 </td>
 <td style="text-align:left;">
 character
@@ -944,19 +1011,25 @@ ESS round
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.17
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▄▄▆▃▃▆
+█▇▆▆▆
 </td>
 <td style="text-align:left;">
 numeric
@@ -987,19 +1060,25 @@ Edition
 0.00
 </td>
 <td style="text-align:right;">
-2
+2.30
+</td>
+<td style="text-align:right;">
+2.60
 </td>
 <td style="text-align:right;">
 3.50
 </td>
 <td style="text-align:right;">
+3.70
+</td>
+<td style="text-align:right;">
 3.69
 </td>
 <td style="text-align:right;">
-7
+6.70
 </td>
 <td style="text-align:left;">
-██▇▄▁▁▄
+▅█▂▁▂
 </td>
 <td style="text-align:left;">
 character
@@ -1030,7 +1109,13 @@ Production date
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 4.00
@@ -1039,10 +1124,10 @@ Production date
 3.01
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁▂▁▂▁█
+▄▂▁▂█
 </td>
 <td style="text-align:left;">
 character
@@ -1072,19 +1157,25 @@ Respondent’s identification number
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1163.00
 </td>
 <td style="text-align:right;">
 2350.00
 </td>
 <td style="text-align:right;">
+4190.00
+</td>
+<td style="text-align:right;">
 6642.79
 </td>
 <td style="text-align:right;">
-69893
+69893.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -1116,7 +1207,10 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 1.00
@@ -1125,10 +1219,13 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 1.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:left;">
-▁▁▁█▁▁▁
+▁▁█▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, character
@@ -1158,7 +1255,7 @@ Design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:right;">
 1.00
@@ -1167,10 +1264,16 @@ Design weight
 1.00
 </td>
 <td style="text-align:right;">
-4
+1.03
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+3.80
 </td>
 <td style="text-align:left;">
-▂█▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -1200,19 +1303,25 @@ Post-stratification weight including design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.17
+</td>
+<td style="text-align:right;">
+0.84
 </td>
 <td style="text-align:right;">
 0.99
 </td>
 <td style="text-align:right;">
+1.13
+</td>
+<td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃█▁▁▁▁▁
+▇█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -1242,19 +1351,25 @@ Population size weight (must be combined with dweight or pspwght)
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.29
+</td>
+<td style="text-align:right;">
+0.35
 </td>
 <td style="text-align:right;">
 0.44
 </td>
 <td style="text-align:right;">
+0.46
+</td>
+<td style="text-align:right;">
 0.39
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:left;">
-█▁▇▁▁██
+▅▄▁▂█
 </td>
 <td style="text-align:left;">
 numeric
@@ -1284,19 +1399,25 @@ Analysis weight
 23.31
 </td>
 <td style="text-align:right;">
-0
+0.08
+</td>
+<td style="text-align:right;">
+0.36
 </td>
 <td style="text-align:right;">
 0.43
 </td>
 <td style="text-align:right;">
+0.50
+</td>
+<td style="text-align:right;">
 0.42
 </td>
 <td style="text-align:right;">
-1
+1.41
 </td>
 <td style="text-align:left;">
-▃█▆▁▁▁▁
+▃█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -1326,7 +1447,10 @@ Sampling probability
 81.89
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:right;">
 0.00
@@ -1335,10 +1459,13 @@ Sampling probability
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -1368,19 +1495,25 @@ Sampling stratum
 81.89
 </td>
 <td style="text-align:right;">
-195
+195.00
+</td>
+<td style="text-align:right;">
+197.00
 </td>
 <td style="text-align:right;">
 201.00
 </td>
 <td style="text-align:right;">
+280.00
+</td>
+<td style="text-align:right;">
 238.38
 </td>
 <td style="text-align:right;">
-280
+280.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -1410,19 +1543,25 @@ Primary sampling unit
 81.89
 </td>
 <td style="text-align:right;">
-2824
+2824.00
+</td>
+<td style="text-align:right;">
+3392.00
 </td>
 <td style="text-align:right;">
 3775.00
 </td>
 <td style="text-align:right;">
+4158.00
+</td>
+<td style="text-align:right;">
 3774.13
 </td>
 <td style="text-align:right;">
-4717
+4717.00
 </td>
 <td style="text-align:left;">
-▄▇███▇▄
+▅███▅
 </td>
 <td style="text-align:left;">
 numeric
@@ -1454,19 +1593,25 @@ Most people try to take advantage of me, 1, 2, 3,
 0.27
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.40
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▅█▆▃
+▁▂▆█▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1498,19 +1643,25 @@ People mostly look out for themselves, 1, 2, 3, 4,
 0.22
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.64
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▅▆█▄▂
+▂▅█▇▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1542,19 +1693,25 @@ You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 0.11
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.77
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▅▆█▅▂
+▂▄▇█▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1586,19 +1743,25 @@ Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 6.92
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 5.04
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▆█▆▂▁
+▂▅█▄▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1630,19 +1793,25 @@ Agree strongly, Agree, Neither agree nor disagree,
 46.22
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.05
 </td>
 <td style="text-align:right;">
-5
+5.00
 </td>
 <td style="text-align:left;">
-▂█▁▇▁█▂
+▂█▇█▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1674,19 +1843,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 10.95
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 4.67
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▄▃███▃▁
+▄▆█▅▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1718,19 +1893,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 2.54
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.42
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▄█▆▄
+▁▃▆█▃
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1762,19 +1943,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.47
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.06
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▂▃██▆
+▁▂▄█▄
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1806,19 +1993,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 3.03
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 5.09
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▆▇█▂▁
+▂▅█▅▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1850,19 +2043,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 5.01
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.98
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▅█▄▂
+▂▃██▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1894,19 +2093,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 16.37
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 4.93
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▇██▂▁
+▃▅█▄▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1938,19 +2143,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 7.33
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.38
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▅▆█▄▂
+▃▅█▇▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -1982,19 +2193,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 91.30
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.12
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▂▃█▇▇
+▁▂▅█▅
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2026,19 +2243,25 @@ Yes, No, Not eligible to vote, Refusal, Don’t know
 20.45
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
 1.33
 </td>
 <td style="text-align:right;">
-2
+2.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▄
+█▁▁▁▄
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2070,7 +2293,13 @@ Allow many to come and live here, Allow some, Allo
 2.55
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -2079,10 +2308,10 @@ Allow many to come and live here, Allow some, Allo
 1.95
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁█▁▂▁▁
+▄█▁▂▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2114,19 +2343,25 @@ Allow many to come and live here, Allow some, Allo
 2.67
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.27
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▂▁█▁▅▁▁
+▂█▁▅▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2158,19 +2393,25 @@ Allow many to come and live here, Allow some, Allo
 2.84
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.31
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃▁█▁▆▁▁
+▃█▁▆▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2202,19 +2443,25 @@ Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 2.09
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.05
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▄▆█▅▃
+▂▃██▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2246,19 +2493,25 @@ Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 1.54
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.18
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▄▅█▆▄
+▂▃▇█▃
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2290,19 +2543,25 @@ Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 2.92
 </td>
 <td style="text-align:right;">
-0
+0.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.43
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▄█▆▃▁
+▁▃█▄▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2334,19 +2593,25 @@ Refusal, Don’t know, No answer
 0.11
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.56
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▃▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2378,7 +2643,13 @@ Male, Female, No answer
 0.01
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -2387,10 +2658,10 @@ Male, Female, No answer
 1.52
 </td>
 <td style="text-align:right;">
-2
+2.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2422,19 +2693,25 @@ Not available
 89.35
 </td>
 <td style="text-align:right;">
-15
+14.92
+</td>
+<td style="text-align:right;">
+36.38
 </td>
 <td style="text-align:right;">
 48.42
 </td>
 <td style="text-align:right;">
+63.83
+</td>
+<td style="text-align:right;">
 50.05
 </td>
 <td style="text-align:right;">
-95
+94.67
 </td>
 <td style="text-align:left;">
-▄▇█▆▆▄▂
+▄█▇▆▂
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2466,19 +2743,25 @@ Not available
 0.24
 </td>
 <td style="text-align:right;">
-14
+14.00
+</td>
+<td style="text-align:right;">
+34.00
 </td>
 <td style="text-align:right;">
 47.00
 </td>
 <td style="text-align:right;">
+62.00
+</td>
+<td style="text-align:right;">
 48.18
 </td>
 <td style="text-align:right;">
-102
+102.00
 </td>
 <td style="text-align:left;">
-▆███▆▃▁
+▆█▇▅▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2510,19 +2793,25 @@ Not possible to harmonise into 5-level ISCED, Less
 54.12
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.27
 </td>
 <td style="text-align:right;">
-5
+5.00
 </td>
 <td style="text-align:left;">
-▁▄▁█▁▁▅
+▁▄█▁▅
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2554,19 +2843,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.82
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▄▃▁
+█▅▃▂▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2598,7 +2893,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.64
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -2607,10 +2908,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.87
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2642,7 +2943,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.85
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -2651,10 +2958,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.78
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2686,19 +2993,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.87
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.92
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄██▁▅▄▁
+█▆▄▃▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2730,7 +3043,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.82
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 5.00
@@ -2739,10 +3058,10 @@ Very much like me, Like me, Somewhat like me, A li
 4.36
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▁▂▄▁▅█▄
+▂▄▅█▄
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2774,19 +3093,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.94
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.42
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▆█▅▁▃▂▁
+█▃▂▂▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2818,19 +3143,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.86
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.83
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▄▃▁
+█▅▃▂▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2862,19 +3193,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.89
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.90
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▂▄▆▁▆█▄
+▆▆▆█▄
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2906,19 +3243,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.32
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.83
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▆▁▄▄▁
+█▄▃▃▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2950,19 +3293,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.09
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.32
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▅▁▂▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -2994,7 +3343,13 @@ Very much like me, Like me, Somewhat like me, A li
 1.08
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -3003,10 +3358,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.98
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▇█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3038,19 +3393,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.78
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.53
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▃██▁▇█▃
+█▇▆▇▃
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3082,19 +3443,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.69
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.15
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▄▁▂▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3126,7 +3493,10 @@ Very much like me, Like me, Somewhat like me, A li
 0.80
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -3135,10 +3505,13 @@ Very much like me, Like me, Somewhat like me, A li
 2.00
 </td>
 <td style="text-align:right;">
-6
+2.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:left;">
-▅█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3170,7 +3543,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.92
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -3179,10 +3558,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.66
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▂▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3214,19 +3593,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.28
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.52
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▅▁▂▂▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3258,19 +3643,25 @@ Very much like me, Like me, Somewhat like me, A li
 2.39
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▆▁▄▄▁
+█▄▃▃▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3302,19 +3693,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.12
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.15
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▅▆▂
+█▅▄▄▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3346,19 +3743,25 @@ Very much like me, Like me, Somewhat like me, A li
 2.33
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.54
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▅▁▃▂▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3390,19 +3793,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.10
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.19
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▃██▁▆▅▂
+█▇▅▄▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3434,7 +3843,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.93
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -3443,10 +3858,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.05
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3478,19 +3893,25 @@ Refusal, Don’t know, No answer
 0.24
 </td>
 <td style="text-align:right;">
-1900
+1900.00
+</td>
+<td style="text-align:right;">
+1948.00
 </td>
 <td style="text-align:right;">
 1963.00
 </td>
 <td style="text-align:right;">
+1977.00
+</td>
+<td style="text-align:right;">
 1962.39
 </td>
 <td style="text-align:right;">
-2006
+2006.00
 </td>
 <td style="text-align:left;">
-▁▂▅▇█▆▃
+▁▄██▄
 </td>
 <td style="text-align:left;">
 haven_labelled, vctrs_vctr, double
@@ -3509,7 +3930,8 @@ double
 <div id="expss" class="section level3">
 <h3>2.2. expss</h3>
 <pre class="r"><code>ess_SPSS_expss %&gt;%
-  spss_summary(cut_value_labels = 50,
+  spss_summary(view = FALSE, 
+               cut_value_labels = 50,
                cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
@@ -3545,7 +3967,13 @@ percent_NAs
 min_value
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
-median_value
+q25
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q50_median
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q75
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
 mean_value
@@ -3587,19 +4015,25 @@ ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.27
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▅▅█▄▄▇
+██▇▇▇
 </td>
 <td style="text-align:left;">
 labelled, character
@@ -3629,19 +4063,25 @@ ESS round
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.17
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▄▄▆▃▃▆
+█▇▆▆▆
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -3672,19 +4112,25 @@ Edition
 0.00
 </td>
 <td style="text-align:right;">
-2
+2.30
+</td>
+<td style="text-align:right;">
+2.60
 </td>
 <td style="text-align:right;">
 3.50
 </td>
 <td style="text-align:right;">
+3.70
+</td>
+<td style="text-align:right;">
 3.69
 </td>
 <td style="text-align:right;">
-7
+6.70
 </td>
 <td style="text-align:left;">
-██▇▄▁▁▄
+▅█▂▁▂
 </td>
 <td style="text-align:left;">
 labelled, character
@@ -3715,7 +4161,13 @@ Production date
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 4.00
@@ -3724,10 +4176,10 @@ Production date
 3.01
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁▂▁▂▁█
+▄▂▁▂█
 </td>
 <td style="text-align:left;">
 labelled, character
@@ -3757,19 +4209,25 @@ Respondent’s identification number
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1163.00
 </td>
 <td style="text-align:right;">
 2350.00
 </td>
 <td style="text-align:right;">
+4190.00
+</td>
+<td style="text-align:right;">
 6642.79
 </td>
 <td style="text-align:right;">
-69893
+69893.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -3801,7 +4259,10 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 1.00
@@ -3810,10 +4271,13 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 1.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:left;">
-▁▁▁█▁▁▁
+▁▁█▁▁
 </td>
 <td style="text-align:left;">
 labelled, character
@@ -3843,7 +4307,7 @@ Design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:right;">
 1.00
@@ -3852,10 +4316,16 @@ Design weight
 1.00
 </td>
 <td style="text-align:right;">
-4
+1.03
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+3.80
 </td>
 <td style="text-align:left;">
-▂█▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -3885,19 +4355,25 @@ Post-stratification weight including design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.17
+</td>
+<td style="text-align:right;">
+0.84
 </td>
 <td style="text-align:right;">
 0.99
 </td>
 <td style="text-align:right;">
+1.13
+</td>
+<td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃█▁▁▁▁▁
+▇█▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -3927,19 +4403,25 @@ Population size weight (must be combined with dweight or pspwght)
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.29
+</td>
+<td style="text-align:right;">
+0.35
 </td>
 <td style="text-align:right;">
 0.44
 </td>
 <td style="text-align:right;">
+0.46
+</td>
+<td style="text-align:right;">
 0.39
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:left;">
-█▁▇▁▁██
+▅▄▁▂█
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -3969,19 +4451,25 @@ Analysis weight
 23.31
 </td>
 <td style="text-align:right;">
-0
+0.08
+</td>
+<td style="text-align:right;">
+0.36
 </td>
 <td style="text-align:right;">
 0.43
 </td>
 <td style="text-align:right;">
+0.50
+</td>
+<td style="text-align:right;">
 0.42
 </td>
 <td style="text-align:right;">
-1
+1.41
 </td>
 <td style="text-align:left;">
-▃█▆▁▁▁▁
+▃█▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4011,7 +4499,10 @@ Sampling probability
 81.89
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:right;">
 0.00
@@ -4020,10 +4511,13 @@ Sampling probability
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4053,19 +4547,25 @@ Sampling stratum
 81.89
 </td>
 <td style="text-align:right;">
-195
+195.00
+</td>
+<td style="text-align:right;">
+197.00
 </td>
 <td style="text-align:right;">
 201.00
 </td>
 <td style="text-align:right;">
+280.00
+</td>
+<td style="text-align:right;">
 238.38
 </td>
 <td style="text-align:right;">
-280
+280.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4095,19 +4595,25 @@ Primary sampling unit
 81.89
 </td>
 <td style="text-align:right;">
-2824
+2824.00
+</td>
+<td style="text-align:right;">
+3392.00
 </td>
 <td style="text-align:right;">
 3775.00
 </td>
 <td style="text-align:right;">
+4158.00
+</td>
+<td style="text-align:right;">
 3774.13
 </td>
 <td style="text-align:right;">
-4717
+4717.00
 </td>
 <td style="text-align:left;">
-▄▇███▇▄
+▅███▅
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4139,19 +4645,25 @@ Most people try to take advantage of me, 1, 2, 3,
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.62
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4183,19 +4695,25 @@ People mostly look out for themselves, 1, 2, 3, 4,
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.82
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4227,19 +4745,25 @@ You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.85
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4271,19 +4795,25 @@ Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 10.74
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4315,19 +4845,25 @@ Agree strongly, Agree, Neither agree nor disagree,
 44.99
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.16
 </td>
 <td style="text-align:right;">
-8
+8.00
 </td>
 <td style="text-align:left;">
-█▇█▂▁▁▁
+█▆█▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4359,19 +4895,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 13.78
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4403,19 +4945,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 8.49
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4447,19 +4995,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.44
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4491,19 +5045,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 7.60
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4535,19 +5095,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 10.09
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4579,19 +5145,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 12.05
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 8.99
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4623,19 +5195,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 11.43
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4667,19 +5245,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 91.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 8.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 9.81
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4711,19 +5295,25 @@ Yes, No, Not eligible to vote, Refusal, Don’t know
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
 1.82
 </td>
 <td style="text-align:right;">
-8
+8.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4755,7 +5345,13 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -4764,10 +5360,10 @@ Allow many to come and live here, Allow some, Allo
 2.10
 </td>
 <td style="text-align:right;">
-8
+8.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4799,19 +5395,25 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.43
 </td>
 <td style="text-align:right;">
-8
+8.00
 </td>
 <td style="text-align:left;">
-█▄▁▁▁▁▁
+█▄▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4843,19 +5445,25 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.47
 </td>
 <td style="text-align:right;">
-8
+8.00
 </td>
 <td style="text-align:left;">
-█▅▁▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4887,19 +5495,25 @@ Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.76
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4931,19 +5545,25 @@ Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.44
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -4975,19 +5595,25 @@ Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 7.83
 </td>
 <td style="text-align:right;">
-88
+88.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5019,19 +5645,25 @@ Refusal, Don’t know, No answer
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.64
 </td>
 <td style="text-align:right;">
-99
+99.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5063,7 +5695,13 @@ Male, Female, No answer
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5072,10 +5710,10 @@ Male, Female, No answer
 1.52
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5107,19 +5745,25 @@ Not available
 89.34
 </td>
 <td style="text-align:right;">
-15
+14.92
+</td>
+<td style="text-align:right;">
+36.40
 </td>
 <td style="text-align:right;">
 48.46
 </td>
 <td style="text-align:right;">
+63.92
+</td>
+<td style="text-align:right;">
 50.58
 </td>
 <td style="text-align:right;">
-999
+999.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5151,19 +5795,25 @@ Not available
 0.00
 </td>
 <td style="text-align:right;">
-14
+14.00
+</td>
+<td style="text-align:right;">
+34.00
 </td>
 <td style="text-align:right;">
 47.00
 </td>
 <td style="text-align:right;">
+62.00
+</td>
+<td style="text-align:right;">
 50.42
 </td>
 <td style="text-align:right;">
-999
+999.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5195,19 +5845,25 @@ Not possible to harmonise into 5-level ISCED, Less
 53.89
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.56
 </td>
 <td style="text-align:right;">
-99
+99.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5239,19 +5895,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▃▂▁▁▁
+█▇▂▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5283,7 +5945,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5292,10 +5960,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.91
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5327,7 +5995,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5336,10 +6010,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.84
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5371,19 +6045,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.97
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▆▄▃▁▁▁
+██▃▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5415,7 +6095,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 5.00
@@ -5424,10 +6110,10 @@ Very much like me, Like me, Somewhat like me, A li
 4.39
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-▂▄▅█▄▁▁
+▂██▄▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5459,19 +6145,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.47
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▂▂▁▁▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5503,19 +6195,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▃▂▁▁▁
+█▇▂▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5547,19 +6245,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.93
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-▆▆▆█▄▁▁
+▄█▆▃▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5591,19 +6295,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.90
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▃▃▁▁▁
+█▆▃▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5635,19 +6345,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.38
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▁▁▁▁▁
+█▄▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5679,7 +6395,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5688,10 +6410,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.04
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5723,19 +6445,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.61
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▇▆▇▃▁▁
+▆█▅▂▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5767,19 +6495,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.19
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5811,7 +6545,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5820,10 +6560,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.05
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5855,7 +6595,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -5864,10 +6610,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.71
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5899,19 +6645,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.59
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▂▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5943,19 +6695,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.99
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▃▃▁▁▁
+█▇▃▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -5987,19 +6745,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.20
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▄▄▁▁▁
+██▄▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -6031,19 +6795,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.66
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▂▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -6075,19 +6845,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.24
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▇▅▄▁▁▁
+▆█▃▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -6119,7 +6895,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -6128,10 +6910,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.10
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -6163,19 +6945,25 @@ Refusal, Don’t know, No answer
 0.00
 </td>
 <td style="text-align:right;">
-1900
+1900.00
+</td>
+<td style="text-align:right;">
+1948.00
 </td>
 <td style="text-align:right;">
 1963.00
 </td>
 <td style="text-align:right;">
+1977.00
+</td>
+<td style="text-align:right;">
 1977.38
 </td>
 <td style="text-align:right;">
-9999
+9999.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 labelled, numeric
@@ -6194,7 +6982,8 @@ double
 <div id="sjlabelled" class="section level3">
 <h3>2.3. sjlabelled</h3>
 <pre class="r"><code>ess_SPSS_sjlabelled %&gt;% 
-  spss_summary(cut_value_labels = 50,
+  spss_summary(view = FALSE,
+               cut_value_labels = 50,
                cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
@@ -6230,7 +7019,13 @@ percent_NAs
 min_value
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
-median_value
+q25
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q50_median
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q75
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
 mean_value
@@ -6272,19 +7067,25 @@ ESS1e06_7, ESS2e03_6, ESS3e03_7, ESS4e04_6, ESS5e0
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.27
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▅▅█▄▄▇
+██▇▇▇
 </td>
 <td style="text-align:left;">
 character
@@ -6314,19 +7115,25 @@ ESS round
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.17
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▄▄▆▃▃▆
+█▇▆▆▆
 </td>
 <td style="text-align:left;">
 numeric
@@ -6357,19 +7164,25 @@ Edition
 0.00
 </td>
 <td style="text-align:right;">
-2
+2.30
+</td>
+<td style="text-align:right;">
+2.60
 </td>
 <td style="text-align:right;">
 3.50
 </td>
 <td style="text-align:right;">
+3.70
+</td>
+<td style="text-align:right;">
 3.69
 </td>
 <td style="text-align:right;">
-7
+6.70
 </td>
 <td style="text-align:left;">
-██▇▄▁▁▄
+▅█▂▁▂
 </td>
 <td style="text-align:left;">
 character
@@ -6400,7 +7213,13 @@ Production date
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 4.00
@@ -6409,10 +7228,10 @@ Production date
 3.01
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁▂▁▂▁█
+▄▂▁▂█
 </td>
 <td style="text-align:left;">
 character
@@ -6442,19 +7261,25 @@ Respondent’s identification number
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1163.00
 </td>
 <td style="text-align:right;">
 2350.00
 </td>
 <td style="text-align:right;">
+4190.00
+</td>
+<td style="text-align:right;">
 6642.79
 </td>
 <td style="text-align:right;">
-69893
+69893.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -6486,7 +7311,10 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 1.00
@@ -6495,10 +7323,13 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 1.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:left;">
-▁▁▁█▁▁▁
+▁▁█▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -6528,7 +7359,7 @@ Design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:right;">
 1.00
@@ -6537,10 +7368,16 @@ Design weight
 1.00
 </td>
 <td style="text-align:right;">
-4
+1.03
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+3.80
 </td>
 <td style="text-align:left;">
-▂█▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -6570,19 +7407,25 @@ Post-stratification weight including design weight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.17
+</td>
+<td style="text-align:right;">
+0.84
 </td>
 <td style="text-align:right;">
 0.99
 </td>
 <td style="text-align:right;">
+1.13
+</td>
+<td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃█▁▁▁▁▁
+▇█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -6612,19 +7455,25 @@ Population size weight (must be combined with dweight or pspwght)
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.29
+</td>
+<td style="text-align:right;">
+0.35
 </td>
 <td style="text-align:right;">
 0.44
 </td>
 <td style="text-align:right;">
+0.46
+</td>
+<td style="text-align:right;">
 0.39
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:left;">
-█▁▇▁▁██
+▅▄▁▂█
 </td>
 <td style="text-align:left;">
 numeric
@@ -6654,19 +7503,25 @@ Analysis weight
 23.31
 </td>
 <td style="text-align:right;">
-0
+0.08
+</td>
+<td style="text-align:right;">
+0.36
 </td>
 <td style="text-align:right;">
 0.43
 </td>
 <td style="text-align:right;">
+0.50
+</td>
+<td style="text-align:right;">
 0.42
 </td>
 <td style="text-align:right;">
-1
+1.41
 </td>
 <td style="text-align:left;">
-▃█▆▁▁▁▁
+▃█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -6696,7 +7551,10 @@ Sampling probability
 81.89
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:right;">
 0.00
@@ -6705,10 +7563,13 @@ Sampling probability
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -6738,19 +7599,25 @@ Sampling stratum
 81.89
 </td>
 <td style="text-align:right;">
-195
+195.00
+</td>
+<td style="text-align:right;">
+197.00
 </td>
 <td style="text-align:right;">
 201.00
 </td>
 <td style="text-align:right;">
+280.00
+</td>
+<td style="text-align:right;">
 238.38
 </td>
 <td style="text-align:right;">
-280
+280.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -6780,19 +7647,25 @@ Primary sampling unit
 81.89
 </td>
 <td style="text-align:right;">
-2824
+2824.00
+</td>
+<td style="text-align:right;">
+3392.00
 </td>
 <td style="text-align:right;">
 3775.00
 </td>
 <td style="text-align:right;">
+4158.00
+</td>
+<td style="text-align:right;">
 3774.13
 </td>
 <td style="text-align:right;">
-4717
+4717.00
 </td>
 <td style="text-align:left;">
-▄▇███▇▄
+▅███▅
 </td>
 <td style="text-align:left;">
 numeric
@@ -6824,19 +7697,25 @@ Most people try to take advantage of me, 1, 2, 3,
 0.27
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.40
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▅█▆▃
+▁▂▆█▂
 </td>
 <td style="text-align:left;">
 factor
@@ -6868,19 +7747,25 @@ People mostly look out for themselves, 1, 2, 3, 4,
 0.22
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.64
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▅▆█▄▂
+▂▅█▇▂
 </td>
 <td style="text-align:left;">
 factor
@@ -6912,19 +7797,25 @@ You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 0.11
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.77
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▅▆█▅▂
+▂▄▇█▂
 </td>
 <td style="text-align:left;">
 factor
@@ -6956,19 +7847,25 @@ Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 6.92
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 5.04
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▆█▆▂▁
+▂▅█▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7000,19 +7897,25 @@ Agree strongly, Agree, Neither agree nor disagree,
 46.22
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.05
 </td>
 <td style="text-align:right;">
-5
+5.00
 </td>
 <td style="text-align:left;">
-▂█▁▇▁█▂
+▂█▇█▂
 </td>
 <td style="text-align:left;">
 factor
@@ -7044,19 +7947,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 10.95
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 4.67
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▄▃███▃▁
+▄▆█▅▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7088,19 +7997,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 2.54
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.42
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▄█▆▄
+▁▃▆█▃
 </td>
 <td style="text-align:left;">
 factor
@@ -7132,19 +8047,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.47
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.06
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▂▃██▆
+▁▂▄█▄
 </td>
 <td style="text-align:left;">
 factor
@@ -7176,19 +8097,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 3.03
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 5.09
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▆▇█▂▁
+▂▅█▅▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7220,19 +8147,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 5.01
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.98
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▃▅█▄▂
+▂▃██▂
 </td>
 <td style="text-align:left;">
 factor
@@ -7264,19 +8197,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 16.37
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 4.93
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▇██▂▁
+▃▅█▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7308,19 +8247,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 7.33
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.38
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▂▂▅▆█▄▂
+▃▅█▇▂
 </td>
 <td style="text-align:left;">
 factor
@@ -7352,19 +8297,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 91.30
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 7.12
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▂▃█▇▇
+▁▂▅█▅
 </td>
 <td style="text-align:left;">
 factor
@@ -7396,19 +8347,25 @@ Yes, No, Not eligible to vote, Refusal, Don’t know
 20.45
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
 1.33
 </td>
 <td style="text-align:right;">
-2
+2.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▄
+█▁▁▁▄
 </td>
 <td style="text-align:left;">
 factor
@@ -7440,7 +8397,13 @@ Allow many to come and live here, Allow some, Allo
 2.55
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -7449,10 +8412,10 @@ Allow many to come and live here, Allow some, Allo
 1.95
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁█▁▂▁▁
+▄█▁▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7484,19 +8447,25 @@ Allow many to come and live here, Allow some, Allo
 2.67
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.27
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▂▁█▁▅▁▁
+▂█▁▅▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7528,19 +8497,25 @@ Allow many to come and live here, Allow some, Allo
 2.84
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.31
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃▁█▁▆▁▁
+▃█▁▆▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7572,19 +8547,25 @@ Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 2.09
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.05
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▄▆█▅▃
+▂▃██▂
 </td>
 <td style="text-align:left;">
 factor
@@ -7616,19 +8597,25 @@ Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 1.54
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.18
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▂▄▅█▆▄
+▂▃▇█▃
 </td>
 <td style="text-align:left;">
 factor
@@ -7660,19 +8647,25 @@ Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 2.92
 </td>
 <td style="text-align:right;">
-0
+0.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 5.43
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▁▁▄█▆▃▁
+▁▃█▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7704,19 +8697,25 @@ Refusal, Don’t know, No answer
 0.11
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.56
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▃▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -7748,7 +8747,13 @@ Male, Female, No answer
 0.01
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -7757,10 +8762,10 @@ Male, Female, No answer
 1.52
 </td>
 <td style="text-align:right;">
-2
+2.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 factor
@@ -7792,19 +8797,25 @@ Not available
 89.35
 </td>
 <td style="text-align:right;">
-15
+14.92
+</td>
+<td style="text-align:right;">
+36.38
 </td>
 <td style="text-align:right;">
 48.42
 </td>
 <td style="text-align:right;">
+63.83
+</td>
+<td style="text-align:right;">
 50.05
 </td>
 <td style="text-align:right;">
-95
+94.67
 </td>
 <td style="text-align:left;">
-▄▇█▆▆▄▂
+▄█▇▆▂
 </td>
 <td style="text-align:left;">
 numeric
@@ -7836,19 +8847,25 @@ Not available
 0.24
 </td>
 <td style="text-align:right;">
-14
+14.00
+</td>
+<td style="text-align:right;">
+34.00
 </td>
 <td style="text-align:right;">
 47.00
 </td>
 <td style="text-align:right;">
+62.00
+</td>
+<td style="text-align:right;">
 48.18
 </td>
 <td style="text-align:right;">
-102
+102.00
 </td>
 <td style="text-align:left;">
-▆███▆▃▁
+▆█▇▅▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -7880,19 +8897,25 @@ Not possible to harmonise into 5-level ISCED, Less
 54.12
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.27
 </td>
 <td style="text-align:right;">
-5
+5.00
 </td>
 <td style="text-align:left;">
-▁▄▁█▁▁▅
+▁▄█▁▅
 </td>
 <td style="text-align:left;">
 factor
@@ -7924,19 +8947,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.82
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▄▃▁
+█▅▃▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -7968,7 +8997,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.64
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -7977,10 +9012,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.87
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8012,7 +9047,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.85
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -8021,10 +9062,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.78
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8056,19 +9097,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.87
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.92
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄██▁▅▄▁
+█▆▄▃▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8100,7 +9147,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.82
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 5.00
@@ -8109,10 +9162,10 @@ Very much like me, Like me, Somewhat like me, A li
 4.36
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▁▂▄▁▅█▄
+▂▄▅█▄
 </td>
 <td style="text-align:left;">
 factor
@@ -8144,19 +9197,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.94
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.42
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▆█▅▁▃▂▁
+█▃▂▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8188,19 +9247,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.86
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.83
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▄▃▁
+█▅▃▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8232,19 +9297,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.89
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.90
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▂▄▆▁▆█▄
+▆▆▆█▄
 </td>
 <td style="text-align:left;">
 factor
@@ -8276,19 +9347,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.32
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.83
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▆▁▄▄▁
+█▄▃▃▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8320,19 +9397,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.09
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.32
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▅▁▂▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8364,7 +9447,13 @@ Very much like me, Like me, Somewhat like me, A li
 1.08
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -8373,10 +9462,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.98
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▇█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8408,19 +9497,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.78
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.53
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▃██▁▇█▃
+█▇▆▇▃
 </td>
 <td style="text-align:left;">
 factor
@@ -8452,19 +9547,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.69
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.15
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▄▁▂▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8496,7 +9597,10 @@ Very much like me, Like me, Somewhat like me, A li
 0.80
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -8505,10 +9609,13 @@ Very much like me, Like me, Somewhat like me, A li
 2.00
 </td>
 <td style="text-align:right;">
-6
+2.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:left;">
-▅█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8540,7 +9647,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.92
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -8549,10 +9662,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.66
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-██▂▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8584,19 +9697,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.28
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.52
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▅▁▂▂▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8628,19 +9747,25 @@ Very much like me, Like me, Somewhat like me, A li
 2.39
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▆▁▄▄▁
+█▄▃▃▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8672,19 +9797,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.12
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.15
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▇▁▅▆▂
+█▅▄▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8716,19 +9847,25 @@ Very much like me, Like me, Somewhat like me, A li
 2.33
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.54
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▅▁▃▂▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8760,19 +9897,25 @@ Very much like me, Like me, Somewhat like me, A li
 1.10
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.19
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▃██▁▆▅▂
+█▇▅▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8804,7 +9947,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.93
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -8813,10 +9962,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.05
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▅█▃▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -8848,19 +9997,25 @@ Refusal, Don’t know, No answer
 0.24
 </td>
 <td style="text-align:right;">
-1900
+1900.00
+</td>
+<td style="text-align:right;">
+1948.00
 </td>
 <td style="text-align:right;">
 1963.00
 </td>
 <td style="text-align:right;">
+1977.00
+</td>
+<td style="text-align:right;">
 1962.39
 </td>
 <td style="text-align:right;">
-2006
+2006.00
 </td>
 <td style="text-align:left;">
-▁▂▅▇█▆▃
+▁▄██▄
 </td>
 <td style="text-align:left;">
 numeric
@@ -8880,7 +10035,8 @@ double
 <h3>2.4. foreign</h3>
 <pre class="r"><code># foreign
 ess_SPSS_foreign %&gt;% 
-  spss_summary(cut_value_labels = 50,
+  spss_summary(view = FALSE,
+               cut_value_labels = 50,
                cut_value_range = 50) %&gt;% 
   knitr::kable(format = &quot;html&quot;) %&gt;% 
   kableExtra::kable_styling(bootstrap_options = &quot;bordered&quot;, 
@@ -8916,7 +10072,13 @@ percent_NAs
 min_value
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
-median_value
+q25
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q50_median
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+q75
 </th>
 <th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
 mean_value
@@ -8957,19 +10119,25 @@ ESS1e06_7 , ESS2e03_6 , ESS3e03_7 , ESS4e04_6 , ES
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.27
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▅▅█▄▄▇
+██▇▇▇
 </td>
 <td style="text-align:left;">
 character
@@ -8998,19 +10166,25 @@ essround
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 5.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 5.17
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-█▄▄▆▃▃▆
+█▇▆▆▆
 </td>
 <td style="text-align:left;">
 numeric
@@ -9040,19 +10214,25 @@ edition
 0.00
 </td>
 <td style="text-align:right;">
-2
+2.30
+</td>
+<td style="text-align:right;">
+2.60
 </td>
 <td style="text-align:right;">
 3.50
 </td>
 <td style="text-align:right;">
+3.70
+</td>
+<td style="text-align:right;">
 3.69
 </td>
 <td style="text-align:right;">
-7
+6.70
 </td>
 <td style="text-align:left;">
-██▇▄▁▁▄
+▅█▂▁▂
 </td>
 <td style="text-align:left;">
 character
@@ -9082,7 +10262,13 @@ proddate
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 4.00
@@ -9091,10 +10277,10 @@ proddate
 3.01
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▄▁▂▁▂▁█
+▄▂▁▂█
 </td>
 <td style="text-align:left;">
 character
@@ -9123,19 +10309,25 @@ idno
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1163.00
 </td>
 <td style="text-align:right;">
 2350.00
 </td>
 <td style="text-align:right;">
+4190.00
+</td>
+<td style="text-align:right;">
 6642.79
 </td>
 <td style="text-align:right;">
-69893
+69893.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -9165,7 +10357,10 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 0.00
 </td>
 <td style="text-align:right;">
-5
+5.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 5.00
@@ -9174,10 +10369,13 @@ Albania, Austria, Belgium, Bulgaria, Switzerland,
 5.00
 </td>
 <td style="text-align:right;">
-5
+5.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:left;">
-▁▁▁█▁▁▁
+▁▁█▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9206,7 +10404,7 @@ dweight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:right;">
 1.00
@@ -9215,10 +10413,16 @@ dweight
 1.00
 </td>
 <td style="text-align:right;">
-4
+1.03
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+3.80
 </td>
 <td style="text-align:left;">
-▂█▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -9247,19 +10451,25 @@ pspwght
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.17
+</td>
+<td style="text-align:right;">
+0.84
 </td>
 <td style="text-align:right;">
 0.99
 </td>
 <td style="text-align:right;">
+1.13
+</td>
+<td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
-4
+4.00
 </td>
 <td style="text-align:left;">
-▃█▁▁▁▁▁
+▇█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -9288,19 +10498,25 @@ pweight
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.29
+</td>
+<td style="text-align:right;">
+0.35
 </td>
 <td style="text-align:right;">
 0.44
 </td>
 <td style="text-align:right;">
+0.46
+</td>
+<td style="text-align:right;">
 0.39
 </td>
 <td style="text-align:right;">
-0
+0.48
 </td>
 <td style="text-align:left;">
-█▁▇▁▁██
+▅▄▁▂█
 </td>
 <td style="text-align:left;">
 numeric
@@ -9329,19 +10545,25 @@ anweight
 23.31
 </td>
 <td style="text-align:right;">
-0
+0.08
+</td>
+<td style="text-align:right;">
+0.36
 </td>
 <td style="text-align:right;">
 0.43
 </td>
 <td style="text-align:right;">
+0.50
+</td>
+<td style="text-align:right;">
 0.42
 </td>
 <td style="text-align:right;">
-1
+1.41
 </td>
 <td style="text-align:left;">
-▃█▆▁▁▁▁
+▃█▁▁▁
 </td>
 <td style="text-align:left;">
 numeric
@@ -9370,7 +10592,10 @@ prob
 81.89
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:right;">
 0.00
@@ -9379,10 +10604,13 @@ prob
 0.00
 </td>
 <td style="text-align:right;">
-0
+0.00
+</td>
+<td style="text-align:right;">
+0.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -9411,19 +10639,25 @@ stratum
 81.89
 </td>
 <td style="text-align:right;">
-195
+195.00
+</td>
+<td style="text-align:right;">
+197.00
 </td>
 <td style="text-align:right;">
 201.00
 </td>
 <td style="text-align:right;">
+280.00
+</td>
+<td style="text-align:right;">
 238.38
 </td>
 <td style="text-align:right;">
-280
+280.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁█
+█▁▁▁█
 </td>
 <td style="text-align:left;">
 numeric
@@ -9452,19 +10686,25 @@ psu
 81.89
 </td>
 <td style="text-align:right;">
-2824
+2824.00
+</td>
+<td style="text-align:right;">
+3392.00
 </td>
 <td style="text-align:right;">
 3775.00
 </td>
 <td style="text-align:right;">
+4158.00
+</td>
+<td style="text-align:right;">
 3774.13
 </td>
 <td style="text-align:right;">
-4717
+4717.00
 </td>
 <td style="text-align:left;">
-▄▇███▇▄
+▅███▅
 </td>
 <td style="text-align:left;">
 numeric
@@ -9494,19 +10734,25 @@ Most people try to take advantage of me, 1, 2, 3,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 8.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 7.41
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▂▅▂█▂▁
+▁▂█▅▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9536,19 +10782,25 @@ People mostly look out for themselves, 1, 2, 3, 4,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.66
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▄█▄█▂▁
+▁▃█▃▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9578,19 +10830,25 @@ You can’t be too careful, 1, 2, 3, 4, 5, 6, 7, 8,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.77
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▃▇▃█▂▁
+▂▃█▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9620,19 +10878,25 @@ Left, 1, 2, 3, 4, 5, 6, 7, 8, 9, Right, Refusal, D
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.51
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▄█▃▄▁▂
+▂▄█▂▂
 </td>
 <td style="text-align:left;">
 factor
@@ -9662,19 +10926,25 @@ Agree strongly, Agree, Neither agree nor disagree,
 44.99
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.13
 </td>
 <td style="text-align:right;">
-7
+7.00
 </td>
 <td style="text-align:left;">
-▂█▇█▂▁▁
+█▇█▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9704,19 +10974,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+4.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.47
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▃▅█▄▅▁▃
+▃▄█▂▃
 </td>
 <td style="text-align:left;">
 factor
@@ -9746,19 +11022,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 8.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 7.56
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▂▅▃█▃▁
+▁▂█▆▂
 </td>
 <td style="text-align:left;">
 factor
@@ -9788,19 +11070,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+7.00
 </td>
 <td style="text-align:right;">
 8.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 8.08
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▁▃▂█▄▁
+▁▂██▂
 </td>
 <td style="text-align:left;">
 factor
@@ -9830,19 +11118,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.30
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▂▄█▄▅▁▁
+▂▄█▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9872,19 +11166,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 7.28
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▂▇▄█▂▂
+▁▂█▃▂
 </td>
 <td style="text-align:left;">
 factor
@@ -9914,19 +11214,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 12.05
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+7.00
+</td>
+<td style="text-align:right;">
 6.27
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▂▄█▄▄▁▂
+▂▄█▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -9956,19 +11262,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.87
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▂▄█▄█▂▃
+▂▃█▃▂
 </td>
 <td style="text-align:left;">
 factor
@@ -9998,19 +11310,25 @@ No trust at all, 1, 2, 3, 4, 5, 6, 7, 8, 9, Comple
 91.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+7.00
 </td>
 <td style="text-align:right;">
 9.00
 </td>
 <td style="text-align:right;">
+10.00
+</td>
+<td style="text-align:right;">
 8.28
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▁▃▃█▅▁
+▁▂██▃
 </td>
 <td style="text-align:left;">
 factor
@@ -10040,19 +11358,25 @@ Yes, No, Not eligible to vote, Refusal, Don’t know
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 1.00
 </td>
 <td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
 1.73
 </td>
 <td style="text-align:right;">
-5
+5.00
 </td>
 <td style="text-align:left;">
-█▄▁▃▁▁▁
+█▄▃▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10082,7 +11406,13 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -10091,10 +11421,10 @@ Allow many to come and live here, Allow some, Allo
 2.05
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▄█▂▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10124,19 +11454,25 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.37
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▂█▅▁▁▁▁
+█▄▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10166,19 +11502,25 @@ Allow many to come and live here, Allow some, Allo
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.42
 </td>
 <td style="text-align:right;">
-6
+6.00
 </td>
 <td style="text-align:left;">
-▃█▆▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10208,19 +11550,25 @@ Bad for the economy, 1, 2, 3, 4, 5, 6, 7, 8, 9, Go
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 7.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 7.17
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▂▇▃█▂▁
+▁▂█▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10250,19 +11598,25 @@ Cultural life undermined, 1, 2, 3, 4, 5, 6, 7, 8,
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+6.00
 </td>
 <td style="text-align:right;">
 8.00
 </td>
 <td style="text-align:right;">
+9.00
+</td>
+<td style="text-align:right;">
 7.27
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▃▆▃█▃▁
+▂▃█▅▂
 </td>
 <td style="text-align:left;">
 factor
@@ -10292,19 +11646,25 @@ Worse place to live, 1, 2, 3, 4, 5, 6, 7, 8, 9, Be
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 6.00
 </td>
 <td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
+8.00
+</td>
+<td style="text-align:right;">
 6.62
 </td>
 <td style="text-align:right;">
-13
+13.00
 </td>
 <td style="text-align:left;">
-▁▂█▂▄▁▁
+▁▃█▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10334,19 +11694,25 @@ hhmmb
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.56
 </td>
 <td style="text-align:right;">
-12
+12.00
 </td>
 <td style="text-align:left;">
-█▅▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10376,7 +11742,13 @@ Male, Female, No answer
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -10385,10 +11757,10 @@ Male, Female, No answer
 1.52
 </td>
 <td style="text-align:right;">
-3
+3.00
 </td>
 <td style="text-align:left;">
-█▁▁█▁▁▁
+█▁█▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10418,19 +11790,25 @@ age
 89.34
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+213.75
 </td>
 <td style="text-align:right;">
 351.50
 </td>
 <td style="text-align:right;">
+517.00
+</td>
+<td style="text-align:right;">
 362.99
 </td>
 <td style="text-align:right;">
-748
+748.00
 </td>
 <td style="text-align:left;">
-▅▇███▆▄
+▅██▇▅
 </td>
 <td style="text-align:left;">
 factor
@@ -10460,19 +11838,25 @@ agea
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+21.00
 </td>
 <td style="text-align:right;">
 34.00
 </td>
 <td style="text-align:right;">
+49.00
+</td>
+<td style="text-align:right;">
 35.29
 </td>
 <td style="text-align:right;">
-85
+85.00
 </td>
 <td style="text-align:left;">
-▆███▆▃▁
+▆██▅▂
 </td>
 <td style="text-align:left;">
 factor
@@ -10502,19 +11886,25 @@ Not possible to harmonise into 5-level ISCED, Less
 53.89
 </td>
 <td style="text-align:right;">
-2
+2.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
 4.28
 </td>
 <td style="text-align:right;">
-10
+10.00
 </td>
 <td style="text-align:left;">
-▄█▁▅▁▁▁
+▄█▅▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10544,19 +11934,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▃▂▁▁▁
+█▇▂▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10586,7 +11982,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -10595,10 +11997,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.91
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10628,7 +12030,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -10637,10 +12045,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.84
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10670,19 +12078,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.97
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▆▄▃▁▁▁
+██▃▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10712,7 +12126,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+5.00
 </td>
 <td style="text-align:right;">
 5.00
@@ -10721,10 +12141,10 @@ Very much like me, Like me, Somewhat like me, A li
 4.39
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-▂▄▅█▄▁▁
+▂██▄▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10754,19 +12174,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.47
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▂▂▁▁▁
+█▄▂▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10796,19 +12222,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.87
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▃▂▁▁▁
+█▇▂▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10838,19 +12270,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+3.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.93
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-▆▆▆█▄▁▁
+▄█▆▃▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10880,19 +12318,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.90
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▃▃▁▁▁
+█▆▃▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10922,19 +12366,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.38
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▁▁▁▁▁
+█▄▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -10964,7 +12414,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -10973,10 +12429,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.04
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▂▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11006,19 +12462,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 4.00
 </td>
 <td style="text-align:right;">
+5.00
+</td>
+<td style="text-align:right;">
 3.61
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▇▆▇▃▁▁
+▆█▅▂▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11048,19 +12510,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.19
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▃▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11090,7 +12558,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -11099,10 +12573,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.05
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11132,7 +12606,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -11141,10 +12621,10 @@ Very much like me, Like me, Somewhat like me, A li
 1.71
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▁▁▁▁▁▁
+█▁▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11174,19 +12654,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.59
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▂▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11216,19 +12702,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 2.99
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▃▃▁▁▁
+█▇▃▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11258,19 +12750,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.20
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▅▄▄▁▁▁
+██▄▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11300,19 +12798,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
 </td>
 <td style="text-align:right;">
 2.00
 </td>
 <td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
 2.66
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▄▂▁▁▁▁
+█▅▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11342,19 +12846,25 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 3.00
 </td>
 <td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
 3.24
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▇▅▄▁▁▁
+▆█▃▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11384,7 +12894,13 @@ Very much like me, Like me, Somewhat like me, A li
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.00
 </td>
 <td style="text-align:right;">
 2.00
@@ -11393,10 +12909,10 @@ Very much like me, Like me, Somewhat like me, A li
 2.10
 </td>
 <td style="text-align:right;">
-9
+9.00
 </td>
 <td style="text-align:left;">
-█▂▁▁▁▁▁
+█▃▁▁▁
 </td>
 <td style="text-align:left;">
 factor
@@ -11426,19 +12942,25 @@ yrbrn
 0.00
 </td>
 <td style="text-align:right;">
-1
+1.00
+</td>
+<td style="text-align:right;">
+42.00
 </td>
 <td style="text-align:right;">
 57.00
 </td>
 <td style="text-align:right;">
+71.00
+</td>
+<td style="text-align:right;">
 56.50
 </td>
 <td style="text-align:right;">
-103
+103.00
 </td>
 <td style="text-align:left;">
-▁▃▆██▆▂
+▁▅█▇▃
 </td>
 <td style="text-align:left;">
 factor
