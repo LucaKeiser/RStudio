@@ -74,6 +74,7 @@ ess_SPSS_foreign <- foreign::read.spss(here::here("gfs.bern",
 \
 ```{r message=FALSE, warning=FALSE}
 spss_summary <- function(data,
+                         sep = "; ",
                          view = TRUE,
                          cut_value_range = 9999,
                          cut_value_labels = 9999,
@@ -90,13 +91,13 @@ spss_summary <- function(data,
   
   # 1.1. value range
   value_range <- sjlabelled::get_values(data_filtered) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     map(., ~str_sub(., end = cut_value_range)) %>%
     unlist()
   
   # 1.2. value labels
   value_labels <- sjlabelled::get_labels(data_filtered) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     map(., ~str_sub(., end = cut_value_labels)) %>% 
     unlist() 
   
@@ -139,7 +140,7 @@ spss_summary <- function(data,
   
   # 1.10. variable_class
   variable_class <- map(data_filtered, class) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     unlist()
   
   
@@ -171,7 +172,7 @@ spss_summary <- function(data,
     if(ncol(data_filtered) != ncol(data)) {
       
       removed_cols <- setdiff(names(data), names(data_filtered)) %>% 
-        str_c(collapse = ", ")
+        str_c(collapse = sep)
       
       message(glue("NOTE: The following colimns have been removed (no valid observations):{removed_cols}."))
       
@@ -180,13 +181,13 @@ spss_summary <- function(data,
     View(tibble,
          title = as.character(data_set_name))
     
-  # 3.2. print()
+    # 3.2. print()
   } else{
     
     if(ncol(data_filtered) != ncol(data)) {
       
       removed_cols <- setdiff(names(data), names(data_filtered)) %>% 
-        str_c(collapse = ", ")
+        str_c(collapse = sep)
       
       message(glue("NOTE: The following colimns have been removed (no valid observations):{removed_cols}."))
       

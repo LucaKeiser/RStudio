@@ -6,6 +6,7 @@ library(tidyverse)
 
 ### Function
 spss_summary <- function(data,
+                         sep = "; ",
                          view = TRUE,
                          cut_value_range = 9999,
                          cut_value_labels = 9999,
@@ -22,13 +23,13 @@ spss_summary <- function(data,
   
   # 1.1. value range
   value_range <- sjlabelled::get_values(data_filtered) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     map(., ~str_sub(., end = cut_value_range)) %>%
     unlist()
   
   # 1.2. value labels
-  value_labels <- sjlabelled::get_labels(data_filtered) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+  value_label <- sjlabelled::get_labels(data_filtered) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     map(., ~str_sub(., end = cut_value_labels)) %>% 
     unlist() 
   
@@ -71,7 +72,7 @@ spss_summary <- function(data,
   
   # 1.10. variable_class
   variable_class <- map(data_filtered, class) %>% 
-    map(., ~str_c(., collapse = ", ")) %>% 
+    map(., ~str_c(., collapse = sep)) %>% 
     unlist()
   
   
@@ -81,7 +82,7 @@ spss_summary <- function(data,
     variable_name = names(data_filtered),
     variable_label = sjlabelled::get_label(data_filtered),
     value_range = value_range,
-    value_labels = value_labels,
+    value_label = value_label,
     number_NAs = map_dbl(data_filtered, ~sum(is.na(.))),
     percent_NAs = round((number_NAs / nrow(data_filtered)) * 100, 2),
     min_value = min_value,
@@ -103,7 +104,7 @@ spss_summary <- function(data,
     if(ncol(data_filtered) != ncol(data)) {
       
       removed_cols <- setdiff(names(data), names(data_filtered)) %>% 
-        str_c(collapse = ", ")
+        str_c(collapse = sep)
       
       message(glue("NOTE: The following colimns have been removed (no valid observations):{removed_cols}."))
       
@@ -118,7 +119,7 @@ spss_summary <- function(data,
     if(ncol(data_filtered) != ncol(data)) {
       
       removed_cols <- setdiff(names(data), names(data_filtered)) %>% 
-        str_c(collapse = ", ")
+        str_c(collapse = sep)
       
       message(glue("NOTE: The following colimns have been removed (no valid observations):{removed_cols}."))
       

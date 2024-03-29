@@ -3,60 +3,103 @@
 library(tidyverse)
 library(haven)
 
+# Funktion laden
+source(here::here("gfs.bern",
+                  "02_scripts",
+                  "SPSS_summary_function_raw.R"))
+
 
 # Daten laden -------------------------------------------------------------
-df <- tibble(
-  var_1 = c(0, 1, 1, 1, 0, 0, 99999999, 99999998),
-  var_2 = c(1, 1, 2, 4, 5, 3, 1, 99999999),
-  var_3 = c(99999999, 5, 4, 4, 4, 3, 5, 1)
-)
+df <- haven::read_sav(here::here("gfs.bern",
+                                 "01_data",
+                                 "ESS_subset.sav"))
+
+# Excel mit allen notwendigen Informationen erstellen
+# df %>% 
+#   spss_summary(view = FALSE) %>% 
+#   select(variable_name, variable_label, 
+#          value_range, value_label) %>% 
+#   writexl::write_xlsx(here::here("gfs.bern",
+#                                  "01_data",
+#                                  "df_labels.xlsx"))
 
 df_labels <- readxl::read_xlsx(here::here("gfs.bern",
                                           "01_data",
-                                          "df_labels.xlsx"),
-                               col_names = c("variable", "variable_label", 
-                                             "value_range", "value_label"))
+                                          "df_labels.xlsx"))
+
 
 
 # Labels-Funktion ---------------------------------------------------------
 
 # Check
-names(df) == df_labels$variable
+table(names(df) == df_labels$variable_name)
 
 for(i in seq_along(names(df))) {
   
+  
+  ### Aktulle Variable
   current_variable <- names(df)[i]
+  message(glue::glue("{i}. Variable: {current_variable}"))
   
-  message(glue::glue("{current_variable}"))
   
-  # Value Range extrahieren
+  ### benötigte Informationen extrahieren
+  
+  # 1. Variable Label
+  variable_label <- df_labels[[2]][[i]]
+  
+  if(is.na(variable_label)) {
+    variable_label <- "KEIN LABEL GEFUNDEN"
+  }
+  
+  # 2. Value Range extrahieren
   value_range <-  df_labels[[3]][[i]] %>% 
-    str_remove_all(";|9999998|99999999") %>% 
     str_squish() %>% 
-    str_split(" ") %>% 
-    unlist() %>% 
-    as.numeric()
+    str_split("; ") %>% 
+    unlist()
   
-  # Value Labels extrahieren
-  value_labels <- df_labels[[4]][[i]] %>% 
-    str_remove_all(";") %>% 
-    str_split(" ") %>% 
+  if(!any(is.na(value_range)) & 
+     all(str_detect(value_range, "[0-9]"))) {
+    value_range <- parse_number(value_range)
+  }
+  
+  # 3. Value Labels extrahieren
+  value_label <- df_labels[[4]][[i]] %>% 
+    str_split("; ") %>% 
     unlist() %>% 
     str_squish()
   
-  variable_label <- df_labels[[2]][[i]]
-  value_labels <- setNames(value_range, value_labels)
   
-  # Datensatz belabeln
-  df <- df %>% 
-    mutate(
-      {{ current_variable }} := 
-        labelled_spss(
-          df[, i][[1]],
-          label = variable_label,
-          labels = value_labels,
-          na_values = c(9999998, 9999999)
-        )
-    )
+  ### 1. Option
+  # Wenn die Anzahl Variable Labels mit der 
+  # Anzahl Value Labels übereinstimmt:
+  
+  if(length(value_range) == length(value_label) & 
+     !any(is.na(value_range)) & !any(is.na(value_label))) {
+    
+    value_labels <- setNames(value_range, value_label)
+    
+    df <- df %>% 
+      mutate(
+        {{ current_variable }} := 
+          labelled_spss(
+            df[, i][[1]],
+            label = variable_label,
+            labels = value_labels
+          )
+      )
+  } 
+  
+  # Wenn die beiden Werte nicht übereinstimmen, 
+  # wird nur das Variable Label vergeben.
+  else{
+    df <- df %>% 
+      mutate(
+        {{ current_variable }} := 
+          labelled_spss(
+            df[, i][[1]],
+            label = variable_label
+          )
+      )
+  }
 }
 
