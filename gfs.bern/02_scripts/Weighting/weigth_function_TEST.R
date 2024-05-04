@@ -8,6 +8,7 @@ library(anesrake)
 # Funktion laden
 source(here::here("gfs.bern",
                   "02_scripts",
+                  "helper_functions",
                   "SPSS_summary_function_raw.R"))
 
 
