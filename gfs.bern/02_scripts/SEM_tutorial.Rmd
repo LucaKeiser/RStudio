@@ -1,0 +1,235 @@
+---
+title: "<br>Structural Equation Model (SEM)<br>"
+output: 
+  html_document:
+    toc: yes
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+<br>
+<br>
+
+# Structural Equation Models in R with lavaan
+<br>
+Source: https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/
+<br>
+by Charles Lanfear (2018)
+
+<br>
+<br>
+
+## Setup
+```{r message=FALSE, warning=FALSE}
+# Packages
+library(tidyverse)
+library(lavaan)
+library(semPlot)
+library(lavaanPlot)
+
+# Data
+data(HolzingerSwineford1939)
+#?HolzingerSwineford1939
+# Rename
+df <- as_tibble(HolzingerSwineford1939)
+```
+
+<br>
+<br>
+
+
+# Linear Regression
+```{r message=FALSE, warning=FALSE}
+# with the lm()-function
+lm_out_1 <- lm(x4 ~ ageyr,
+               data = df)
+summary(lm_out_1)
+
+# with the sem()-function
+sem_out_1 <- sem("x4 ~ ageyr",
+                 data = df)
+summary(sem_out_1)
+```
+
+<br>
+<br>
+
+# Multiple Regression
+```{r message=FALSE, warning=FALSE}
+# with the lm()-function
+lm_out_2 <- lm(x4 ~ ageyr + sex + grade,
+               data = df)
+summary(lm_out_2)
+
+# with the sem()-function
+sem_out_2 <- sem("x4 ~ ageyr + sex + grade",
+                 data = df)
+summary(sem_out_2)
+```
+
+<br>
+<br>
+
+# Confirmatory Factor Analysis (CFA)
+Here we have defined three latent (unobserved) variables, visual, textual, and speed, each with three observed indicators:
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+cfa_mod_1 <- "
+visual =~ x1 + x2 + x3
+textual =~ x4 + x5 + x6
+speed =~ x7 + x8 + x9
+"
+
+cfa_out_1 <- cfa(cfa_mod_1,
+                 data = df)
+summary(cfa_out_1)
+
+# Extract output as dataframe
+parameterEstimates(cfa_out_1)
+
+# Plot output
+semPaths(cfa_out_1,
+         whatLabels = "est")
+### Does not work...
+# lavaanPlot(model = cfa_out_1,
+#            covs = TRUE, 
+#            stand = FALSE))
+```
+
+<br>
+**NOTE:**
+<br>
+When using the cfa() or sem() functions lavaan...
+<br>
+...Automatically sets the first indicator coefficient to 1
+<br>
+...Estimates covariances between latent variables
+<br>
+...Estimates variances for all latent and observed variables
+<br>
+...Defaults to a Maximum-Likelihood estimator.
+
+<br>
+<br>
+
+# Structural Equation Model (SEM)
+
+## 1. Walking dog
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+wd_mod_1 <- "
+X =~ x1 + x2
+Y =~ x4 + x5
+Y ~ X
+"
+wd_out_1 <- sem(wd_mod_1,
+                data = df)
+summary(wd_out_1)
+semPaths(wd_out_1,
+         whatLabels = "est")
+```
+
+<br>
+
+## 2. Fix particular coefficients 
+We can fix particular coefficients to a certain value using pre-multiplication:
+```{r message=FALSE, warning=FALSE}
+### 2.
+# we can fix particular coefficients to a certain value using 
+# pre-multiplication
+wd_mod_2 <- "
+X =~ 1*x1 + 1*x2
+Y =~ 1*x4 + 1*x5
+Y ~ X
+"
+wd_out_2 <- sem(wd_mod_2,
+                data =df)
+summary(wd_out_2)
+```
+
+<br>
+
+## 3. Force coefficients
+We can force coefficients to have the same value:
+```{r message=FALSE, warning=FALSE}
+wd_mod_3 <- "
+X =~ x1 + b1*x2
+Y =~ x4 + b1*x5
+Y ~ X
+"
+wd_out_3 <- sem(wd_mod_3,
+                data = df)
+summary(wd_out_3)
+```
+
+<br>
+
+## 4.Constrain covariances
+We can also constrain covariances to 0. Here we have made the assumption that the visual latent construct is orthogonal to textual and speed (aka has no influence):
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+wd_mod_4 <- "
+visual =~ x1 + x2 + x3
+textual =~ x4 + x5 + x6
+speed =~ x7 + x8 + x9
+
+visual ~~ 0*textual + 0*speed
+"
+wd_out_4 <- sem(wd_mod_4,
+                data =df)
+summary(wd_out_4)
+semPaths(wd_out_4,
+         whatLabels = "est")
+```
+
+<br>
+
+## 5. Complex models
+We can build complex models (multiple latent variables, regressions and covariances in one model):
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+complex_mod_1 <- "
+visual =~ x1 + x2 + x3
+textual =~ x4 + x5 + x6
+speed =~ x7 + x8 + x9
+
+visual ~ textual + speed
+textual ~ speed
+"
+complex_out_1 <- sem(complex_mod_1,
+                     data = df)
+summary(complex_out_1)
+parameterestimates(complex_out_1)
+semPaths(complex_out_1,
+         whatLabels = "est")
+```
+
+<br>
+
+## 6. Alternate estimaors
+lavaan defaults to using a full-information Maximum-Likelihood (ML) Estimator. This is the most efficient estimator available and can handle missing data (missing=ml). We may want to specify alternate estimators if our data do not meet the assumptions for ML. By adding the estimator= argument to our cfa(), sem(), or lavaan() call, we can choose another estimator.
+<br>
+**Some useful choices:**
+<br>
+**estimator="MLM":** ML with robust errors and Satorra-Bentler test statistic.
+<br>
+**estimator="WLSMV":** Weighted least squares with mean and variance adjusted test statistic (needed for categorical endogenous variables).
+
+<br>
+
+## 7. Categorical variables
+If you provide lavaan categorical data as an endogenous variable, it will automatically use a proper estimator (e.g. Diagonally Weighted Least Squares). To specify an ordinal variable as categorical, you will want to make it an ordered factor:
+```{r message=FALSE, warning=FALSE}
+iris %>% 
+  as_tibble() %>% 
+  mutate(Species = ordered(Species)) %>% 
+  glimpse()
+```
+
+Unordered categorical variables (factors) will need to be split into dummy variables prior to estimation:
+```{r message=FALSE, warning=FALSE}
+iris %>% 
+  fastDummies::dummy_cols(select_columns = "Species",
+                          remove_first_dummy = TRUE,
+                          remove_selected_columns = TRUE) %>% 
+  glimpse()
+```
+
+
