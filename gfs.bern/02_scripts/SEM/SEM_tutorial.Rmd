@@ -89,11 +89,9 @@ parameterEstimates(cfa_out_1)
 
 # Plot output
 semPaths(cfa_out_1,
-         whatLabels = "est")
-### Does not work...
-# lavaanPlot(model = cfa_out_1,
-#            covs = TRUE, 
-#            stand = FALSE))
+         whatLabels = "est", 
+         nCharNodes = 0,
+         nCharEdges = 0)
 ```
 
 <br>
@@ -125,7 +123,9 @@ wd_out_1 <- sem(wd_mod_1,
                 data = df)
 summary(wd_out_1)
 semPaths(wd_out_1,
-         whatLabels = "est")
+         whatLabels = "est", 
+         nCharNodes = 0,
+         nCharEdges = 0)
 ```
 
 <br>
@@ -177,7 +177,9 @@ wd_out_4 <- sem(wd_mod_4,
                 data =df)
 summary(wd_out_4)
 semPaths(wd_out_4,
-         whatLabels = "est")
+         whatLabels = "est", 
+         nCharNodes = 0,
+         nCharEdges = 0)
 ```
 
 <br>
@@ -198,7 +200,9 @@ complex_out_1 <- sem(complex_mod_1,
 summary(complex_out_1)
 parameterestimates(complex_out_1)
 semPaths(complex_out_1,
-         whatLabels = "est")
+         whatLabels = "est", 
+         nCharNodes = 0,
+         nCharEdges = 0)
 ```
 
 <br>
