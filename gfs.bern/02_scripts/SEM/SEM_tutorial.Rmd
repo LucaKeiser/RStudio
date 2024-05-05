@@ -13,9 +13,10 @@ editor_options:
 
 # Structural Equation Models in R with lavaan
 <br>
-Source: https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/
+Sources:
+- https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/
 <br>
-by Charles Lanfear (2018)
+- https://www.youtube.com/watch?v=jngCml2hWVI&list=PLqdBkA4Dl3KpjRB3f_ZtYsMQTRMY4HM-I
 
 <br>
 <br>
@@ -49,7 +50,9 @@ summary(lm_out_1)
 # with the sem()-function
 sem_out_1 <- sem("x4 ~ ageyr",
                  data = df)
-summary(sem_out_1)
+summary(sem_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)
 ```
 
 <br>
@@ -65,7 +68,9 @@ summary(lm_out_2)
 # with the sem()-function
 sem_out_2 <- sem("x4 ~ ageyr + sex + grade",
                  data = df)
-summary(sem_out_2)
+summary(sem_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)
 ```
 
 <br>
@@ -82,7 +87,9 @@ speed =~ x7 + x8 + x9
 
 cfa_out_1 <- cfa(cfa_mod_1,
                  data = df)
-summary(cfa_out_1)
+summary(cfa_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)
 
 # Extract output as dataframe
 parameterEstimates(cfa_out_1)
@@ -121,7 +128,9 @@ Y ~ X
 "
 wd_out_1 <- sem(wd_mod_1,
                 data = df)
-summary(wd_out_1)
+summary(wd_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)
 semPaths(wd_out_1,
          whatLabels = "est", 
          nCharNodes = 0,
@@ -143,7 +152,9 @@ Y ~ X
 "
 wd_out_2 <- sem(wd_mod_2,
                 data =df)
-summary(wd_out_2)
+summary(wd_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)
 ```
 
 <br>
@@ -158,7 +169,9 @@ Y ~ X
 "
 wd_out_3 <- sem(wd_mod_3,
                 data = df)
-summary(wd_out_3)
+summary(wd_out_3,
+        fit.measures = TRUE,
+        standardized = TRUE)
 ```
 
 <br>
@@ -175,7 +188,9 @@ visual ~~ 0*textual + 0*speed
 "
 wd_out_4 <- sem(wd_mod_4,
                 data =df)
-summary(wd_out_4)
+summary(wd_out_4,
+        fit.measures = TRUE,
+        standardized = TRUE)
 semPaths(wd_out_4,
          whatLabels = "est", 
          nCharNodes = 0,
@@ -188,16 +203,20 @@ semPaths(wd_out_4,
 We can build complex models (multiple latent variables, regressions and covariances in one model):
 ```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
 complex_mod_1 <- "
+# latent variables
 visual =~ x1 + x2 + x3
 textual =~ x4 + x5 + x6
 speed =~ x7 + x8 + x9
 
+# structural model (regressions)
 visual ~ textual + speed
 textual ~ speed
 "
 complex_out_1 <- sem(complex_mod_1,
                      data = df)
-summary(complex_out_1)
+summary(complex_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)
 parameterestimates(complex_out_1)
 semPaths(complex_out_1,
          whatLabels = "est", 
@@ -207,7 +226,75 @@ semPaths(complex_out_1,
 
 <br>
 
-## 6. Alternate estimaors
+## 6. Improve model fit
+The following measures are use to judge the model fit:
+<br>
+- Did lavaan end normally?
+<br>
+**Global fit**
+<br>
+- Model Test User Model: p-value (Chi-square) should not be significant (>= 0.05)
+<br>
+- CFI should be >= 0.95
+<br>
+- RMSEA should be <= 0.06 (additionally the p-value for RMSEA <= 0.05 should not be significant (>= 0.05))
+<br>
+- SRMR should be <= 0.08
+<br>
+**Local fit**
+<br>
+The lavaan package can give us suggestions for improving the local model fit:
+```{r}
+modindices(complex_out_1) %>% 
+  # chose a threshold (10 is recommended). The higher the
+  # mi-value the bigger the (potential) improvement regarding
+  # the model fit.
+  # NOTE: are the recommendations theoretically meaningful?
+  filter(mi > 10)
+```
+
+<br>
+
+**Furthermore:** 
+<br>
+- Variances should be >= 0.
+<br>
+- Factor-Loadings for the latent variables ("Std.all") should be high enough (>= 0.6/0.7)
+
+<br>
+
+Include the suggested covariance (x7 ~~ x8):
+```{r}
+complex_mod_2 <- "
+# latent variables
+visual =~ x1 + x2 + x3
+textual =~ x4 + x5 + x6
+speed =~ x7 + x8 + x9
+
+# structural model (what is the relationship between the latent variables? Regressions)
+visual ~ textual + speed
+textual ~ speed
+
+# covariances
+x7 ~~ x8
+"
+complex_out_2 <- sem(complex_mod_2,
+                     data = df)
+summary(complex_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)
+```
+
+<br>
+
+The model fit did improve. But is it a significant improvement? Yes!
+```{r}
+lavTestLRT(complex_out_1, complex_out_2)
+```
+
+<br>
+
+## 7. Alternate estimaors
 lavaan defaults to using a full-information Maximum-Likelihood (ML) Estimator. This is the most efficient estimator available and can handle missing data (missing=ml). We may want to specify alternate estimators if our data do not meet the assumptions for ML. By adding the estimator= argument to our cfa(), sem(), or lavaan() call, we can choose another estimator.
 <br>
 **Some useful choices:**
@@ -218,7 +305,7 @@ lavaan defaults to using a full-information Maximum-Likelihood (ML) Estimator. T
 
 <br>
 
-## 7. Categorical variables
+## 8. Categorical variables
 If you provide lavaan categorical data as an endogenous variable, it will automatically use a proper estimator (e.g. Diagonally Weighted Least Squares). To specify an ordinal variable as categorical, you will want to make it an ordered factor:
 ```{r message=FALSE, warning=FALSE}
 iris %>% 

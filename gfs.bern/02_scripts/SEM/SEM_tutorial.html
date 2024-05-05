@@ -465,9 +465,11 @@ coefficients</a></li>
 <li><a href="#constrain-covariances" id="toc-constrain-covariances">4.Constrain covariances</a></li>
 <li><a href="#complex-models" id="toc-complex-models">5. Complex
 models</a></li>
-<li><a href="#alternate-estimaors" id="toc-alternate-estimaors">6.
+<li><a href="#improve-model-fit" id="toc-improve-model-fit">6. Improve
+model fit</a></li>
+<li><a href="#alternate-estimaors" id="toc-alternate-estimaors">7.
 Alternate estimaors</a></li>
-<li><a href="#categorical-variables" id="toc-categorical-variables">7.
+<li><a href="#categorical-variables" id="toc-categorical-variables">8.
 Categorical variables</a></li>
 </ul></li>
 </ul>
@@ -476,8 +478,8 @@ Categorical variables</a></li>
 <p><br> <br></p>
 <div id="structural-equation-models-in-r-with-lavaan" class="section level1">
 <h1>Structural Equation Models in R with lavaan</h1>
-<p><br> Source: <a href="https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/" class="uri">https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/</a>
-<br> by Charles Lanfear (2018)</p>
+<p><br> Sources: - <a href="https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/" class="uri">https://clanfear.github.io/lavaan_tutorial/lavaan_tutorial_presentation.html#/</a>
+<br> - <a href="https://www.youtube.com/watch?v=jngCml2hWVI&amp;list=PLqdBkA4Dl3KpjRB3f_ZtYsMQTRMY4HM-I" class="uri">https://www.youtube.com/watch?v=jngCml2hWVI&amp;list=PLqdBkA4Dl3KpjRB3f_ZtYsMQTRMY4HM-I</a></p>
 <p><br> <br></p>
 <div id="setup" class="section level2">
 <h2>Setup</h2>
@@ -522,7 +524,9 @@ summary(lm_out_1)</code></pre>
 <pre class="r"><code># with the sem()-function
 sem_out_1 &lt;- sem(&quot;x4 ~ ageyr&quot;,
                  data = df)
-summary(sem_out_1)</code></pre>
+summary(sem_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 1 iteration
 ## 
 ##   Estimator                                         ML
@@ -536,6 +540,38 @@ summary(sem_out_1)</code></pre>
 ##   Test statistic                                 0.000
 ##   Degrees of freedom                                 0
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                                12.029
+##   Degrees of freedom                                 1
+##   P-value                                        0.001
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    1.000
+##   Tucker-Lewis Index (TLI)                       1.000
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)               -466.326
+##   Loglikelihood unrestricted model (H1)       -466.326
+##                                                       
+##   Akaike (AIC)                                 936.652
+##   Bayesian (BIC)                               944.066
+##   Sample-size adjusted Bayesian (SABIC)        937.723
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.000
+##   90 Percent confidence interval - lower         0.000
+##   90 Percent confidence interval - upper         0.000
+##   P-value H_0: RMSEA &lt;= 0.050                       NA
+##   P-value H_0: RMSEA &gt;= 0.080                       NA
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.000
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -543,13 +579,13 @@ summary(sem_out_1)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   x4 ~                                                
-##     ageyr            -0.219    0.063   -3.503    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   x4 ~                                                                  
+##     ageyr            -0.219    0.063   -3.503    0.000   -0.219   -0.198
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x4                1.298    0.106   12.268    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x4                1.298    0.106   12.268    0.000    1.298    0.961</code></pre>
 <p><br> <br></p>
 </div>
 <div id="multiple-regression" class="section level1">
@@ -582,7 +618,9 @@ summary(lm_out_2)</code></pre>
 <pre class="r"><code># with the sem()-function
 sem_out_2 &lt;- sem(&quot;x4 ~ ageyr + sex + grade&quot;,
                  data = df)
-summary(sem_out_2)</code></pre>
+summary(sem_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 1 iteration
 ## 
 ##   Estimator                                         ML
@@ -597,6 +635,38 @@ summary(sem_out_2)</code></pre>
 ##   Test statistic                                 0.000
 ##   Degrees of freedom                                 0
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                                56.996
+##   Degrees of freedom                                 3
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    1.000
+##   Tucker-Lewis Index (TLI)                       1.000
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)               -442.636
+##   Loglikelihood unrestricted model (H1)       -442.636
+##                                                       
+##   Akaike (AIC)                                 893.272
+##   Bayesian (BIC)                               908.087
+##   Sample-size adjusted Bayesian (SABIC)        895.402
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.000
+##   90 Percent confidence interval - lower         0.000
+##   90 Percent confidence interval - upper         0.000
+##   P-value H_0: RMSEA &lt;= 0.050                       NA
+##   P-value H_0: RMSEA &gt;= 0.080                       NA
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.000
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -604,15 +674,15 @@ summary(sem_out_2)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   x4 ~                                                
-##     ageyr            -0.441    0.069   -6.423    0.000
-##     sex               0.157    0.124    1.265    0.206
-##     grade             0.963    0.143    6.750    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   x4 ~                                                                  
+##     ageyr            -0.441    0.069   -6.423    0.000   -0.441   -0.398
+##     sex               0.157    0.124    1.265    0.206    0.157    0.067
+##     grade             0.963    0.143    6.750    0.000    0.963    0.413
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x4                1.120    0.091   12.247    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x4                1.120    0.091   12.247    0.000    1.120    0.827</code></pre>
 <p><br> <br></p>
 </div>
 <div id="confirmatory-factor-analysis-cfa" class="section level1">
@@ -627,7 +697,9 @@ speed =~ x7 + x8 + x9
 
 cfa_out_1 &lt;- cfa(cfa_mod_1,
                  data = df)
-summary(cfa_out_1)</code></pre>
+summary(cfa_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 35 iterations
 ## 
 ##   Estimator                                         ML
@@ -642,6 +714,38 @@ summary(cfa_out_1)</code></pre>
 ##   Degrees of freedom                                24
 ##   P-value (Chi-square)                           0.000
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               918.852
+##   Degrees of freedom                                36
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.931
+##   Tucker-Lewis Index (TLI)                       0.896
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -3737.745
+##   Loglikelihood unrestricted model (H1)      -3695.092
+##                                                       
+##   Akaike (AIC)                                7517.490
+##   Bayesian (BIC)                              7595.339
+##   Sample-size adjusted Bayesian (SABIC)       7528.739
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.092
+##   90 Percent confidence interval - lower         0.071
+##   90 Percent confidence interval - upper         0.114
+##   P-value H_0: RMSEA &lt;= 0.050                    0.001
+##   P-value H_0: RMSEA &gt;= 0.080                    0.840
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.065
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -649,42 +753,42 @@ summary(cfa_out_1)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual =~                                           
-##     x1                1.000                           
-##     x2                0.554    0.100    5.554    0.000
-##     x3                0.729    0.109    6.685    0.000
-##   textual =~                                          
-##     x4                1.000                           
-##     x5                1.113    0.065   17.014    0.000
-##     x6                0.926    0.055   16.703    0.000
-##   speed =~                                            
-##     x7                1.000                           
-##     x8                1.180    0.165    7.152    0.000
-##     x9                1.082    0.151    7.155    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual =~                                                             
+##     x1                1.000                               0.900    0.772
+##     x2                0.554    0.100    5.554    0.000    0.498    0.424
+##     x3                0.729    0.109    6.685    0.000    0.656    0.581
+##   textual =~                                                            
+##     x4                1.000                               0.990    0.852
+##     x5                1.113    0.065   17.014    0.000    1.102    0.855
+##     x6                0.926    0.055   16.703    0.000    0.917    0.838
+##   speed =~                                                              
+##     x7                1.000                               0.619    0.570
+##     x8                1.180    0.165    7.152    0.000    0.731    0.723
+##     x9                1.082    0.151    7.155    0.000    0.670    0.665
 ## 
 ## Covariances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual ~~                                           
-##     textual           0.408    0.074    5.552    0.000
-##     speed             0.262    0.056    4.660    0.000
-##   textual ~~                                          
-##     speed             0.173    0.049    3.518    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual ~~                                                             
+##     textual           0.408    0.074    5.552    0.000    0.459    0.459
+##     speed             0.262    0.056    4.660    0.000    0.471    0.471
+##   textual ~~                                                            
+##     speed             0.173    0.049    3.518    0.000    0.283    0.283
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.549    0.114    4.833    0.000
-##    .x2                1.134    0.102   11.146    0.000
-##    .x3                0.844    0.091    9.317    0.000
-##    .x4                0.371    0.048    7.779    0.000
-##    .x5                0.446    0.058    7.642    0.000
-##    .x6                0.356    0.043    8.277    0.000
-##    .x7                0.799    0.081    9.823    0.000
-##    .x8                0.488    0.074    6.573    0.000
-##    .x9                0.566    0.071    8.003    0.000
-##     visual            0.809    0.145    5.564    0.000
-##     textual           0.979    0.112    8.737    0.000
-##     speed             0.384    0.086    4.451    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.549    0.114    4.833    0.000    0.549    0.404
+##    .x2                1.134    0.102   11.146    0.000    1.134    0.821
+##    .x3                0.844    0.091    9.317    0.000    0.844    0.662
+##    .x4                0.371    0.048    7.779    0.000    0.371    0.275
+##    .x5                0.446    0.058    7.642    0.000    0.446    0.269
+##    .x6                0.356    0.043    8.277    0.000    0.356    0.298
+##    .x7                0.799    0.081    9.823    0.000    0.799    0.676
+##    .x8                0.488    0.074    6.573    0.000    0.488    0.477
+##    .x9                0.566    0.071    8.003    0.000    0.566    0.558
+##     visual            0.809    0.145    5.564    0.000    1.000    1.000
+##     textual           0.979    0.112    8.737    0.000    1.000    1.000
+##     speed             0.384    0.086    4.451    0.000    1.000    1.000</code></pre>
 <pre class="r"><code># Extract output as dataframe
 parameterEstimates(cfa_out_1)</code></pre>
 <pre><code>##        lhs op     rhs   est    se      z pvalue ci.lower ci.upper
@@ -736,7 +840,9 @@ Y ~ X
 &quot;
 wd_out_1 &lt;- sem(wd_mod_1,
                 data = df)
-summary(wd_out_1)</code></pre>
+summary(wd_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 32 iterations
 ## 
 ##   Estimator                                         ML
@@ -751,6 +857,38 @@ summary(wd_out_1)</code></pre>
 ##   Degrees of freedom                                 1
 ##   P-value (Chi-square)                           0.616
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               306.333
+##   Degrees of freedom                                 6
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    1.000
+##   Tucker-Lewis Index (TLI)                       1.015
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -1771.622
+##   Loglikelihood unrestricted model (H1)      -1771.496
+##                                                       
+##   Akaike (AIC)                                3561.244
+##   Bayesian (BIC)                              3594.608
+##   Sample-size adjusted Bayesian (SABIC)       3566.065
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.000
+##   90 Percent confidence interval - lower         0.000
+##   90 Percent confidence interval - upper         0.121
+##   P-value H_0: RMSEA &lt;= 0.050                    0.728
+##   P-value H_0: RMSEA &gt;= 0.080                    0.158
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.005
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -758,27 +896,27 @@ summary(wd_out_1)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   X =~                                                
-##     x1                1.000                           
-##     x2                0.421    0.150    2.811    0.005
-##   Y =~                                                
-##     x4                1.000                           
-##     x5                0.880    0.116    7.571    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   X =~                                                                  
+##     x1                1.000                               0.984    0.844
+##     x2                0.421    0.150    2.811    0.005    0.414    0.352
+##   Y =~                                                                  
+##     x4                1.000                               1.117    0.961
+##     x5                0.880    0.116    7.571    0.000    0.983    0.763
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   Y ~                                                 
-##     X                 0.521    0.181    2.876    0.004
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   Y ~                                                                   
+##     X                 0.521    0.181    2.876    0.004    0.459    0.459
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.390    0.325    1.201    0.230
-##    .x2                1.210    0.114   10.617    0.000
-##    .x4                0.103    0.153    0.676    0.499
-##    .x5                0.694    0.131    5.292    0.000
-##     X                 0.969    0.340    2.849    0.004
-##    .Y                 0.985    0.192    5.134    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.390    0.325    1.201    0.230    0.390    0.287
+##    .x2                1.210    0.114   10.617    0.000    1.210    0.876
+##    .x4                0.103    0.153    0.676    0.499    0.103    0.077
+##    .x5                0.694    0.131    5.292    0.000    0.694    0.418
+##     X                 0.969    0.340    2.849    0.004    1.000    1.000
+##    .Y                 0.985    0.192    5.134    0.000    0.789    0.789</code></pre>
 <pre class="r"><code>semPaths(wd_out_1,
          whatLabels = &quot;est&quot;, 
          nCharNodes = 0,
@@ -800,7 +938,9 @@ Y ~ X
 &quot;
 wd_out_2 &lt;- sem(wd_mod_2,
                 data =df)
-summary(wd_out_2)</code></pre>
+summary(wd_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 20 iterations
 ## 
 ##   Estimator                                         ML
@@ -815,6 +955,38 @@ summary(wd_out_2)</code></pre>
 ##   Degrees of freedom                                 3
 ##   P-value (Chi-square)                           0.013
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               306.333
+##   Degrees of freedom                                 6
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.974
+##   Tucker-Lewis Index (TLI)                       0.948
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -1776.905
+##   Loglikelihood unrestricted model (H1)      -1771.496
+##                                                       
+##   Akaike (AIC)                                3567.811
+##   Bayesian (BIC)                              3593.760
+##   Sample-size adjusted Bayesian (SABIC)       3571.560
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.093
+##   90 Percent confidence interval - lower         0.038
+##   90 Percent confidence interval - upper         0.156
+##   P-value H_0: RMSEA &lt;= 0.050                    0.091
+##   P-value H_0: RMSEA &gt;= 0.080                    0.700
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.066
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -822,27 +994,27 @@ summary(wd_out_2)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   X =~                                                
-##     x1                1.000                           
-##     x2                1.000                           
-##   Y =~                                                
-##     x4                1.000                           
-##     x5                1.000                           
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   X =~                                                                  
+##     x1                1.000                               0.644    0.568
+##     x2                1.000                               0.644    0.532
+##   Y =~                                                                  
+##     x4                1.000                               1.050    0.907
+##     x5                1.000                               1.050    0.811
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   Y ~                                                 
-##     X                 0.870    0.181    4.794    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   Y ~                                                                   
+##     X                 0.870    0.181    4.794    0.000    0.533    0.533
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.873    0.101    8.679    0.000
-##    .x2                1.053    0.111    9.448    0.000
-##    .x4                0.239    0.059    4.083    0.000
-##    .x5                0.576    0.072    7.945    0.000
-##     X                 0.415    0.083    5.014    0.000
-##    .Y                 0.790    0.115    6.881    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.873    0.101    8.679    0.000    0.873    0.678
+##    .x2                1.053    0.111    9.448    0.000    1.053    0.717
+##    .x4                0.239    0.059    4.083    0.000    0.239    0.178
+##    .x5                0.576    0.072    7.945    0.000    0.576    0.343
+##     X                 0.415    0.083    5.014    0.000    1.000    1.000
+##    .Y                 0.790    0.115    6.881    0.000    0.716    0.716</code></pre>
 <p><br></p>
 </div>
 <div id="force-coefficients" class="section level2">
@@ -855,7 +1027,9 @@ Y ~ X
 &quot;
 wd_out_3 &lt;- sem(wd_mod_3,
                 data = df)
-summary(wd_out_3)</code></pre>
+summary(wd_out_3,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 28 iterations
 ## 
 ##   Estimator                                         ML
@@ -871,6 +1045,38 @@ summary(wd_out_3)</code></pre>
 ##   Degrees of freedom                                 2
 ##   P-value (Chi-square)                           0.056
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               306.333
+##   Degrees of freedom                                 6
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.987
+##   Tucker-Lewis Index (TLI)                       0.962
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -1774.375
+##   Loglikelihood unrestricted model (H1)      -1771.496
+##                                                       
+##   Akaike (AIC)                                3564.750
+##   Bayesian (BIC)                              3594.407
+##   Sample-size adjusted Bayesian (SABIC)       3569.036
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.079
+##   90 Percent confidence interval - lower         0.000
+##   90 Percent confidence interval - upper         0.158
+##   P-value H_0: RMSEA &lt;= 0.050                    0.193
+##   P-value H_0: RMSEA &gt;= 0.080                    0.578
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.045
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -878,27 +1084,27 @@ summary(wd_out_3)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   X =~                                                
-##     x1                1.000                           
-##     x2        (b1)    0.738    0.102    7.202    0.000
-##   Y =~                                                
-##     x4                1.000                           
-##     x5        (b1)    0.738    0.102    7.202    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   X =~                                                                  
+##     x1                1.000                               0.766    0.667
+##     x2        (b1)    0.738    0.102    7.202    0.000    0.565    0.471
+##   Y =~                                                                  
+##     x4                1.000                               1.202    1.036
+##     x5        (b1)    0.738    0.102    7.202    0.000    0.887    0.698
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   Y ~                                                 
-##     X                 0.750    0.166    4.516    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   Y ~                                                                   
+##     X                 0.750    0.166    4.516    0.000    0.478    0.478
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.733    0.128    5.714    0.000
-##    .x2                1.121    0.110   10.162    0.000
-##    .x4               -0.100    0.192   -0.521    0.603
-##    .x5                0.830    0.124    6.669    0.000
-##     X                 0.587    0.133    4.421    0.000
-##    .Y                 1.116    0.242    4.612    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.733    0.128    5.714    0.000    0.733    0.555
+##    .x2                1.121    0.110   10.162    0.000    1.121    0.778
+##    .x4               -0.100    0.192   -0.521    0.603   -0.100   -0.074
+##    .x5                0.830    0.124    6.669    0.000    0.830    0.513
+##     X                 0.587    0.133    4.421    0.000    1.000    1.000
+##    .Y                 1.116    0.242    4.612    0.000    0.772    0.772</code></pre>
 <p><br></p>
 </div>
 <div id="constrain-covariances" class="section level2">
@@ -915,7 +1121,9 @@ visual ~~ 0*textual + 0*speed
 &quot;
 wd_out_4 &lt;- sem(wd_mod_4,
                 data =df)
-summary(wd_out_4)</code></pre>
+summary(wd_out_4,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 33 iterations
 ## 
 ##   Estimator                                         ML
@@ -930,6 +1138,38 @@ summary(wd_out_4)</code></pre>
 ##   Degrees of freedom                                26
 ##   P-value (Chi-square)                           0.000
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               918.852
+##   Degrees of freedom                                36
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.870
+##   Tucker-Lewis Index (TLI)                       0.820
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -3765.392
+##   Loglikelihood unrestricted model (H1)      -3695.092
+##                                                       
+##   Akaike (AIC)                                7568.783
+##   Bayesian (BIC)                              7639.218
+##   Sample-size adjusted Bayesian (SABIC)       7578.961
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.121
+##   90 Percent confidence interval - lower         0.102
+##   90 Percent confidence interval - upper         0.141
+##   P-value H_0: RMSEA &lt;= 0.050                    0.000
+##   P-value H_0: RMSEA &gt;= 0.080                    1.000
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.145
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -937,42 +1177,42 @@ summary(wd_out_4)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual =~                                           
-##     x1                1.000                           
-##     x2                0.778    0.141    5.532    0.000
-##     x3                1.107    0.214    5.173    0.000
-##   textual =~                                          
-##     x4                1.000                           
-##     x5                1.132    0.067   16.954    0.000
-##     x6                0.925    0.056   16.438    0.000
-##   speed =~                                            
-##     x7                1.000                           
-##     x8                1.150    0.165    6.990    0.000
-##     x9                0.878    0.123    7.166    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual =~                                                             
+##     x1                1.000                               0.724    0.621
+##     x2                0.778    0.141    5.532    0.000    0.563    0.479
+##     x3                1.107    0.214    5.173    0.000    0.801    0.710
+##   textual =~                                                            
+##     x4                1.000                               0.984    0.847
+##     x5                1.132    0.067   16.954    0.000    1.114    0.865
+##     x6                0.925    0.056   16.438    0.000    0.911    0.833
+##   speed =~                                                              
+##     x7                1.000                               0.674    0.619
+##     x8                1.150    0.165    6.990    0.000    0.775    0.766
+##     x9                0.878    0.123    7.166    0.000    0.592    0.587
 ## 
 ## Covariances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual ~~                                           
-##     textual           0.000                           
-##     speed             0.000                           
-##   textual ~~                                          
-##     speed             0.173    0.052    3.331    0.001
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual ~~                                                             
+##     textual           0.000                               0.000    0.000
+##     speed             0.000                               0.000    0.000
+##   textual ~~                                                            
+##     speed             0.173    0.052    3.331    0.001    0.261    0.261
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.835    0.118    7.064    0.000
-##    .x2                1.065    0.105   10.177    0.000
-##    .x3                0.633    0.129    4.899    0.000
-##    .x4                0.382    0.049    7.854    0.000
-##    .x5                0.418    0.059    7.113    0.000
-##    .x6                0.367    0.044    8.374    0.000
-##    .x7                0.729    0.084    8.731    0.000
-##    .x8                0.422    0.084    5.039    0.000
-##    .x9                0.665    0.071    9.383    0.000
-##     visual            0.524    0.130    4.021    0.000
-##     textual           0.969    0.112    8.647    0.000
-##     speed             0.454    0.096    4.728    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.835    0.118    7.064    0.000    0.835    0.614
+##    .x2                1.065    0.105   10.177    0.000    1.065    0.771
+##    .x3                0.633    0.129    4.899    0.000    0.633    0.496
+##    .x4                0.382    0.049    7.854    0.000    0.382    0.283
+##    .x5                0.418    0.059    7.113    0.000    0.418    0.252
+##    .x6                0.367    0.044    8.374    0.000    0.367    0.307
+##    .x7                0.729    0.084    8.731    0.000    0.729    0.616
+##    .x8                0.422    0.084    5.039    0.000    0.422    0.413
+##    .x9                0.665    0.071    9.383    0.000    0.665    0.655
+##     visual            0.524    0.130    4.021    0.000    1.000    1.000
+##     textual           0.969    0.112    8.647    0.000    1.000    1.000
+##     speed             0.454    0.096    4.728    0.000    1.000    1.000</code></pre>
 <pre class="r"><code>semPaths(wd_out_4,
          whatLabels = &quot;est&quot;, 
          nCharNodes = 0,
@@ -985,16 +1225,20 @@ summary(wd_out_4)</code></pre>
 <p>We can build complex models (multiple latent variables, regressions
 and covariances in one model):</p>
 <pre class="r"><code>complex_mod_1 &lt;- &quot;
+# latent variables
 visual =~ x1 + x2 + x3
 textual =~ x4 + x5 + x6
 speed =~ x7 + x8 + x9
 
+# structural model (regressions)
 visual ~ textual + speed
 textual ~ speed
 &quot;
 complex_out_1 &lt;- sem(complex_mod_1,
                      data = df)
-summary(complex_out_1)</code></pre>
+summary(complex_out_1,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
 <pre><code>## lavaan 0.6.17 ended normally after 33 iterations
 ## 
 ##   Estimator                                         ML
@@ -1009,6 +1253,38 @@ summary(complex_out_1)</code></pre>
 ##   Degrees of freedom                                24
 ##   P-value (Chi-square)                           0.000
 ## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               918.852
+##   Degrees of freedom                                36
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.931
+##   Tucker-Lewis Index (TLI)                       0.896
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -3737.745
+##   Loglikelihood unrestricted model (H1)      -3695.092
+##                                                       
+##   Akaike (AIC)                                7517.490
+##   Bayesian (BIC)                              7595.339
+##   Sample-size adjusted Bayesian (SABIC)       7528.739
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.092
+##   90 Percent confidence interval - lower         0.071
+##   90 Percent confidence interval - upper         0.114
+##   P-value H_0: RMSEA &lt;= 0.050                    0.001
+##   P-value H_0: RMSEA &gt;= 0.080                    0.840
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.065
+## 
 ## Parameter Estimates:
 ## 
 ##   Standard errors                             Standard
@@ -1016,42 +1292,42 @@ summary(complex_out_1)</code></pre>
 ##   Information saturated (h1) model          Structured
 ## 
 ## Latent Variables:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual =~                                           
-##     x1                1.000                           
-##     x2                0.554    0.100    5.554    0.000
-##     x3                0.729    0.109    6.685    0.000
-##   textual =~                                          
-##     x4                1.000                           
-##     x5                1.113    0.065   17.014    0.000
-##     x6                0.926    0.055   16.703    0.000
-##   speed =~                                            
-##     x7                1.000                           
-##     x8                1.180    0.165    7.152    0.000
-##     x9                1.082    0.151    7.155    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual =~                                                             
+##     x1                1.000                               0.900    0.772
+##     x2                0.554    0.100    5.554    0.000    0.498    0.424
+##     x3                0.729    0.109    6.685    0.000    0.656    0.581
+##   textual =~                                                            
+##     x4                1.000                               0.990    0.852
+##     x5                1.113    0.065   17.014    0.000    1.102    0.855
+##     x6                0.926    0.055   16.703    0.000    0.917    0.838
+##   speed =~                                                              
+##     x7                1.000                               0.619    0.570
+##     x8                1.180    0.165    7.152    0.000    0.731    0.723
+##     x9                1.082    0.151    7.155    0.000    0.670    0.665
 ## 
 ## Regressions:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##   visual ~                                            
-##     textual           0.321    0.067    4.776    0.000
-##     speed             0.538    0.130    4.152    0.000
-##   textual ~                                           
-##     speed             0.452    0.124    3.654    0.000
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual ~                                                              
+##     textual           0.321    0.067    4.776    0.000    0.354    0.354
+##     speed             0.538    0.130    4.152    0.000    0.370    0.370
+##   textual ~                                                             
+##     speed             0.452    0.124    3.654    0.000    0.283    0.283
 ## 
 ## Variances:
-##                    Estimate  Std.Err  z-value  P(&gt;|z|)
-##    .x1                0.549    0.114    4.833    0.000
-##    .x2                1.134    0.102   11.146    0.000
-##    .x3                0.844    0.091    9.317    0.000
-##    .x4                0.371    0.048    7.778    0.000
-##    .x5                0.446    0.058    7.642    0.000
-##    .x6                0.356    0.043    8.277    0.000
-##    .x7                0.799    0.081    9.823    0.000
-##    .x8                0.488    0.074    6.573    0.000
-##    .x9                0.566    0.071    8.003    0.000
-##    .visual            0.537    0.117    4.582    0.000
-##    .textual           0.901    0.106    8.496    0.000
-##     speed             0.384    0.086    4.451    0.000</code></pre>
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.549    0.114    4.833    0.000    0.549    0.404
+##    .x2                1.134    0.102   11.146    0.000    1.134    0.821
+##    .x3                0.844    0.091    9.317    0.000    0.844    0.662
+##    .x4                0.371    0.048    7.778    0.000    0.371    0.275
+##    .x5                0.446    0.058    7.642    0.000    0.446    0.269
+##    .x6                0.356    0.043    8.277    0.000    0.356    0.298
+##    .x7                0.799    0.081    9.823    0.000    0.799    0.676
+##    .x8                0.488    0.074    6.573    0.000    0.488    0.477
+##    .x9                0.566    0.071    8.003    0.000    0.566    0.558
+##    .visual            0.537    0.117    4.582    0.000    0.664    0.664
+##    .textual           0.901    0.106    8.496    0.000    0.920    0.920
+##     speed             0.384    0.086    4.451    0.000    1.000    1.000</code></pre>
 <pre class="r"><code>parameterestimates(complex_out_1)</code></pre>
 <pre><code>##        lhs op     rhs   est    se      z pvalue ci.lower ci.upper
 ## 1   visual =~      x1 1.000 0.000     NA     NA    1.000    1.000
@@ -1085,8 +1361,161 @@ summary(complex_out_1)</code></pre>
 <p><img src="data:image/png;base64,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9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RmUChNNngylZMCULpmTB9P/cqGdUJkA4fTaYkgVTsmBKFkz/z416RnUzvKlfYnRKFkzJgilZMCULNnzJ5lezaalnVCZAOCULpmTBlCyYkgUbvmTzq9m01HM8VfRfnL3ulVCzDSULpmTBlCyc/p8gAWg0VfcJYAasBRRCzdaULJiSBVOycPp/igSgsVQhE8AMWAqpg5qtKFkwJQumZOH0/yQJQCOpwiY9WYuVAAALLklEQVSAGRBYBjVbUrJgShZMycLp/2kSgMZRhU4AMyCsCmp2p2Q9KFkwJQun/ydKABpFFT4BSp8BgUVQMyXrQcmCKVk4/T9VAtAIqqrPBCh7CoSWQMmULJySBVOyYPp/ugSg4VV9J0DBMyC4AkqmZMGULJiSBdP/EyYADa7qPwGKnQHhBVAyJQulZMGULJj+nzIBaGjVNROgzBnQ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" width="1152" /></p>
 <p><br></p>
 </div>
+<div id="improve-model-fit" class="section level2">
+<h2>6. Improve model fit</h2>
+<p>The following measures are use to judge the model fit: <br> - Did
+lavaan end normally? <br> <strong>Global fit</strong> <br> - Model Test
+User Model: p-value (Chi-square) should not be significant (&gt;= 0.05)
+<br> - CFI should be &gt;= 0.95 <br> - RMSEA should be &lt;= 0.06
+(additionally the p-value for RMSEA &lt;= 0.05 should not be significant
+(&gt;= 0.05)) <br> - SRMR should be &lt;= 0.08 <br> <strong>Local
+fit</strong> <br> The lavaan package can give us suggestions for
+improving the local model fit:</p>
+<pre class="r"><code>modindices(complex_out_1) %&gt;% 
+  # chose a threshold (10 is recommended). The higher the
+  # mi-value the bigger the (potential) improvement regarding
+  # the model fit.
+  # NOTE: are the recommendations theoretically meaningful?
+  filter(mi &gt; 10)</code></pre>
+<pre><code>##      lhs op rhs     mi    epc sepc.lv sepc.all sepc.nox
+## 1 visual =~  x7 18.631 -0.422  -0.380   -0.349   -0.349
+## 2 visual =~  x9 36.411  0.577   0.519    0.515    0.515
+## 3     x7 ~~  x8 34.145  0.536   0.536    0.859    0.859
+## 4     x8 ~~  x9 14.946 -0.423  -0.423   -0.805   -0.805</code></pre>
+<p><br></p>
+<p><strong>Furthermore:</strong> <br> - Variances should be &gt;= 0.
+<br> - Factor-Loadings for the latent variables (“Std.all”) should be
+high enough (&gt;= 0.6/0.7)</p>
+<p><br></p>
+<p>Include the suggested covariance (x7 ~~ x8):</p>
+<pre class="r"><code>complex_mod_2 &lt;- &quot;
+# latent variables
+visual =~ x1 + x2 + x3
+textual =~ x4 + x5 + x6
+speed =~ x7 + x8 + x9
+
+# structural model (what is the relationship between the latent variables? Regressions)
+visual ~ textual + speed
+textual ~ speed
+
+# covariances
+x7 ~~ x8
+&quot;
+complex_out_2 &lt;- sem(complex_mod_2,
+                     data = df)
+summary(complex_out_2,
+        fit.measures = TRUE,
+        standardized = TRUE)</code></pre>
+<pre><code>## lavaan 0.6.17 ended normally after 40 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        22
+## 
+##   Number of observations                           301
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                                53.272
+##   Degrees of freedom                                23
+##   P-value (Chi-square)                           0.000
+## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                               918.852
+##   Degrees of freedom                                36
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.966
+##   Tucker-Lewis Index (TLI)                       0.946
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -3721.728
+##   Loglikelihood unrestricted model (H1)      -3695.092
+##                                                       
+##   Akaike (AIC)                                7487.457
+##   Bayesian (BIC)                              7569.013
+##   Sample-size adjusted Bayesian (SABIC)       7499.242
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.066
+##   90 Percent confidence interval - lower         0.043
+##   90 Percent confidence interval - upper         0.090
+##   P-value H_0: RMSEA &lt;= 0.050                    0.118
+##   P-value H_0: RMSEA &gt;= 0.080                    0.175
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.047
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual =~                                                             
+##     x1                1.000                               0.885    0.759
+##     x2                0.576    0.098    5.897    0.000    0.509    0.433
+##     x3                0.752    0.103    7.289    0.000    0.665    0.589
+##   textual =~                                                            
+##     x4                1.000                               0.989    0.851
+##     x5                1.115    0.066   17.015    0.000    1.103    0.856
+##     x6                0.926    0.056   16.682    0.000    0.916    0.838
+##   speed =~                                                              
+##     x7                1.000                               0.383    0.352
+##     x8                1.244    0.194    6.414    0.000    0.477    0.471
+##     x9                2.515    0.641    3.924    0.000    0.963    0.956
+## 
+## Regressions:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   visual ~                                                              
+##     textual           0.299    0.067    4.491    0.000    0.334    0.334
+##     speed             1.049    0.232    4.526    0.000    0.454    0.454
+##   textual ~                                                             
+##     speed             0.697    0.196    3.546    0.000    0.270    0.270
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##  .x7 ~~                                                                 
+##    .x8                0.353    0.067    5.238    0.000    0.353    0.389
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .x1                0.576    0.101    5.678    0.000    0.576    0.424
+##    .x2                1.122    0.100   11.171    0.000    1.122    0.812
+##    .x3                0.832    0.087    9.552    0.000    0.832    0.653
+##    .x4                0.372    0.048    7.791    0.000    0.372    0.276
+##    .x5                0.444    0.058    7.600    0.000    0.444    0.267
+##    .x6                0.357    0.043    8.287    0.000    0.357    0.298
+##    .x7                1.036    0.090   11.501    0.000    1.036    0.876
+##    .x8                0.795    0.080    9.988    0.000    0.795    0.778
+##    .x9                0.088    0.188    0.466    0.641    0.088    0.086
+##    .visual            0.470    0.105    4.479    0.000    0.600    0.600
+##    .textual           0.907    0.106    8.569    0.000    0.927    0.927
+##     speed             0.147    0.056    2.615    0.009    1.000    1.000</code></pre>
+<p><br></p>
+<p>The model fit did improve. But is it a significant improvement?
+Yes!</p>
+<pre class="r"><code>lavTestLRT(complex_out_1, complex_out_2)</code></pre>
+<pre><code>## 
+## Chi-Squared Difference Test
+## 
+##               Df    AIC    BIC  Chisq Chisq diff   RMSEA Df diff Pr(&gt;Chisq)    
+## complex_out_2 23 7487.5 7569.0 53.272                                          
+## complex_out_1 24 7517.5 7595.3 85.305     32.033 0.32109       1  1.516e-08 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p><br></p>
+</div>
 <div id="alternate-estimaors" class="section level2">
-<h2>6. Alternate estimaors</h2>
+<h2>7. Alternate estimaors</h2>
 <p>lavaan defaults to using a full-information Maximum-Likelihood (ML)
 Estimator. This is the most efficient estimator available and can handle
 missing data (missing=ml). We may want to specify alternate estimators
@@ -1100,7 +1529,7 @@ Weighted least squares with mean and variance adjusted test statistic
 <p><br></p>
 </div>
 <div id="categorical-variables" class="section level2">
-<h2>7. Categorical variables</h2>
+<h2>8. Categorical variables</h2>
 <p>If you provide lavaan categorical data as an endogenous variable, it
 will automatically use a proper estimator (e.g. Diagonally Weighted
 Least Squares). To specify an ordinal variable as categorical, you will
