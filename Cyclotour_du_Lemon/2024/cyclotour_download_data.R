@@ -9,7 +9,6 @@ library(polite)
 
 
 # set up ------------------------------------------------------------------
-
 remote_server <- rsDriver(port = 4567L,
                           browser = "firefox",
                           chromever = NULL)
