@@ -3,7 +3,7 @@ title: "Cyclotour 2023"
 output: 
   html_document:
     toc: yes
-    code_folding: show
+    code_folding: hide
 editor_options: 
   chunk_output_type: console
 ---
@@ -98,7 +98,7 @@ df %>%
 ### Where did the participants come from?
 
 ```{r warning=FALSE, message=FALSE}
-world_map <- map_data('world') %>% 
+world_map <- map_data("world") %>% 
   filter(region != "Antarctica")
 
 
