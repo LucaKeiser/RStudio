@@ -201,6 +201,8 @@ world_map %>%
                         mid = "#FFCBA4",
                         high = "#FF6D6A",
                         midpoint = 750,
+                        breaks = c(250, 500, 750, 
+                                   1000, 1250, 1500),
                         na.value = "#D9D9D6") +
   scale_size(range = c(1, 8)) +
   coord_map(projection = "mercator",
@@ -247,6 +249,7 @@ df_map %>%
                        mid = "#FFCBA4",
                        high = "#FF6D6A",
                        midpoint = 125,
+                       breaks = c(100, 200, 300),
                        na.value = "#D9D9D6") + 
   labs(fill = "Number of participants") + 
   labs(title = "\nWhere did the participants come from within Switzerland?",
