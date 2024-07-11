@@ -4,6 +4,8 @@ output:
   html_document:
     toc: yes
     code_folding: show
+editor_options: 
+  chunk_output_type: console
 ---
 <br>
 <br>
@@ -28,7 +30,7 @@ knitr::opts_chunk$set(fig.width=14,
 #### Load data
 
 ```{r warning=FALSE, message=FALSE}
-df <- read_rds("Cyclotour_2023/cyclotour.rds") %>% 
+df <- read_rds("2023_cyclotour.rds") %>% 
   mutate(age = 2023 - year_of_birth,
          club = ifelse(team == "",
                        "No Club",

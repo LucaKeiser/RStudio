@@ -1,0 +1,476 @@
+---
+title: "Cyclotoru du Lemon 2024"
+format:
+  html:
+   code-fold: true
+   toc: true
+   page-layout: full
+   embed-resources: true
+   self-contained-math: true
+editor_options: 
+  chunk_output_type: console
+---
+
+#### Load Packages
+```{r}
+#| warning: false
+#| message: false
+
+
+library(tidyverse)
+library(ggrepel)
+library(glue)
+library(sf)
+library(countrycode)
+library(sjPlot)
+library(paletteer)
+
+# set theme and figure size
+theme_set(theme_minimal())
+```
+
+
+#### Load Data
+```{r}
+#| warning: false
+#| message: false
+
+df <- read_rds("C:/Users/LucaK/OneDrive/Desktop/GitHub/RStudio/Cyclotour_du_Lemon/2024/2024_cyclotour.rds")
+
+# create full names for Swiss cantons
+df <- df %>% 
+  mutate(
+    swiss_canton = case_when(
+      country == "ZH" ~ "Zürich",
+      country == "BE" ~ "Bern",
+      country == "LU" ~ "Luzern",
+      country == "UR" ~ "Uri",
+      country == "SZ" ~ "Schwyz",
+      country == "OW" ~ "Obwalden",
+      country == "NW" ~ "Nidwalden",
+      country == "GL" ~ "Glarus",
+      country == "ZG" ~ "Zug",
+      country == "FR" ~ "Fribourg",
+      country == "SO" ~ "Solothurn",
+      country == "BS" ~ "Basel-Stadt",
+      country == "BL" ~ "Basel-Land",
+      country == "SH" ~ "Schaffhausen",
+      country == "AR" ~ "Appenzell Ausserrhoden",
+      country == "AI" ~ "Appenzell Innerrhoden",
+      country == "SG" ~ "St. Gallen",
+      country == "GR" ~ "Graubünden",
+      country == "AG" ~ "Aargau",
+      country == "TG" ~ "Thurgau",
+      country == "TI" ~ "Tiucino",
+      country == "VD" ~ "Vaud",
+      country == "VS" ~ "Valais",
+      country == "NE" ~ "Neuchâtel",
+      country == "GE" ~ "Genève",
+      country == "JU" ~ "Jura",
+      TRUE ~ NA_character_ 
+    )
+  )
+
+# create full names for countries
+df <- df %>%  
+  left_join(countrycode::codelist %>% 
+              select(country.name.en,
+                     iso3c),
+            by = c("country" = "iso3c")) %>% 
+  mutate(country.name.en = case_when(!is.na(swiss_canton) ~ "Switzerland",
+                                     TRUE ~ country.name.en))
+
+# cleaning
+df <- df %>% 
+  filter(between(age, 1, 100))
+```
+
+
+
+## Descriptive Statistics
+
+### How old are the participants?
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+# prepare data
+df_plot <- df %>% 
+  filter(age > 0)
+
+# plot
+df_plot %>% 
+  filter(age > 0) %>% 
+  ggplot(aes(age)) + 
+  geom_histogram(color = "white",
+                 fill = "#FF6D6A",
+                 alpha = 0.75) + 
+  
+  # WE
+  geom_vline(xintercept = 29,
+             lty = 2, 
+             color = "#279E9D",
+             size = 2) + 
+  annotate(geom = "label",
+           x = 29, 
+           y = 175, 
+           label = "Our Team") +
+  
+  # Average
+  geom_vline(xintercept = mean(df_plot$age, na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = mean(df_plot$age, na.rm = TRUE),
+           y = 175,
+           label = "Average") +
+  
+  annotate(geom = "label",
+           x = 75, 
+           y = 150, 
+           label = glue("min: {min(df_plot$age, na.rm = TRUE)}
+median: {median(df_plot$age, na.rm = TRUE)}
+avg: {round(mean(df_plot$age, na.rm = TRUE), 1)}
+max: {max(df_plot$age, na.rm = TRUE)}")) +
+  labs(title = "\nHow old are the participants?",
+       subtitle = glue("Total: {nrow(df_plot)} Participants\n"),
+       x = "\nAge (years)",
+       y = "Count\n",
+       caption = "Outliers (age < 0 or age > 100) have been removed.") + 
+  scale_x_continuous(breaks = seq(15, 80, 5))
+```
+
+
+
+### Were did the participants come form?
+
+#### Worldwide
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+# load map
+world_map <- map_data("world") %>% 
+  filter(region != "Antarctica")
+
+# create subset for country labels
+country_labels <- world_map %>% 
+  group_by(region) %>%
+  mutate(long = mean(long), lat = mean(lat)) %>% 
+  select(c("region", "long", "lat")) %>% 
+  unique()
+
+# US fix
+country_labels <- country_labels %>% 
+  mutate(long = ifelse(region == "USA",
+                       -105,
+                       long),
+         lat = ifelse(region == "USA",
+                      40,
+                      lat)) 
+
+# add longitude and latitude to data
+df_map <- df %>% 
+  left_join(country_labels,
+            by = c("country.name.en" = "region"))
+
+# plot
+world_map %>% 
+  ggplot() + 
+  geom_polygon(aes(long, lat,
+                   group = group),
+               color = "grey90",
+               fill = "grey80") + 
+  geom_point(aes(long, lat,
+                 color = n,
+                 size = n),
+             data = df_map %>% 
+               add_count(country.name.en)) + 
+  geom_text_repel(aes(x = long, y = lat, 
+                      label = region),
+                  color = "black", 
+                  size = 3,
+                  max.overlaps = Inf,
+                  data = country_labels %>% 
+                    filter(region %in% df_map$country.name.en)) +
+  scale_color_gradient2(low = "#0892d0",
+                        mid = "#FFCBA4",
+                        high = "#FF6D6A",
+                        midpoint = 750,
+                        na.value = "#D9D9D6") +
+  scale_size(range = c(1, 8)) +
+  coord_map(projection = "mercator",
+            xlim = c(-180, 180)) + 
+  labs(title = "\nWhere did the participants come from?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nLongitude",
+       y = "Latitude\n",
+       color = "Number of\nparticipants:",
+       caption = "Outliers (age < 0 or age > 100) have been removed.") + 
+  guides(size = "none") + 
+  theme_void()
+```
+
+
+#### Within Switzerland
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+# load map
+swiss_map <- read_sf("C:/Users/LucaK/OneDrive/Desktop/GitHub/RStudio/Cyclotour_du_Lemon/2024/Shapefile_Switzerland/swissBOUNDARIES3D_1_4_TLM_KANTONSGEBIET.shp")
+
+# merge data
+df_map <- df %>% 
+  filter(!is.na(swiss_canton)) %>% 
+  count(swiss_canton) %>% 
+  right_join(swiss_map %>% 
+               select(NAME, geometry),
+             by = c("swiss_canton" = "NAME"))
+
+# plot
+df_map %>% 
+  ggplot(aes(geometry = geometry)) + 
+  geom_sf(aes(fill = n),
+          color = "white") + 
+  geom_sf_text(aes(label = swiss_canton),
+               data = df_map %>% distinct(swiss_canton,
+                                          .keep_all = TRUE),
+               fun.geometry = sf::st_centroid) +
+  scale_fill_gradient2(low = "#0892d0",
+                       mid = "#FFCBA4",
+                       high = "#FF6D6A",
+                       midpoint = 125,
+                       na.value = "#D9D9D6") + 
+  labs(fill = "Number of participants") + 
+  labs(title = "\nWhere did the participants come from within Switzerland?",
+       subtitle = glue("Total (Switzerland): {nrow(df %>% filter(country.name.en == 'Switzerland'))} Participants\n"),
+       x = "\nLongitude",
+       y = "Latitude\n",
+       color = "Number of\nparticipants:",
+       caption = "Outliers (age < 0 or age > 100) have been removed.") + 
+  guides(size = "none") + 
+  theme_void()
+```
+
+
+
+## How did WE do overall?
+
+### Time
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+sam_time <- df %>% 
+  filter(rowid == 70) %>% 
+  pull(time_hour) %>% 
+  round(2)
+
+others_time <- df %>% 
+  filter(rowid %in% c(1254, 1452, 2975)) %>% 
+  pull(time_hour) %>% 
+  mean() %>% 
+  round(2)
+
+df %>% 
+  ggplot(aes(time_hour)) +
+  geom_histogram(color = "white",
+                 fill = "#279E9D",
+                 alpha = 0.75) + 
+  
+  annotate(geom = "text",
+           x = 8.25,
+           y = 175,
+           label = glue("Times (hours):
+                        min: {round(min(df$time_hour, na.rm = TRUE), 2)}
+                        median: {round(median(df$time_hour, na.rm = TRUE), 2)}
+                        avg: {round(mean(df$time_hour, na.rm = TRUE), 2)}
+                        max: {round(max(df$time_hour, na.rm = TRUE), 2)}
+                        
+                        Sam: {sam_time}
+                        Arvid, Linda & Luca: {others_time}"),
+           hjust = 0) + 
+  # Sam
+  geom_vline(xintercept = sam_time,
+             lty = 5,
+             linewidth = 2,
+             color = "#FF6D6A") +
+  annotate(geom = "label",
+           x = sam_time, 
+           y = 200, 
+           label = "Sam") +
+  
+  # Others
+  geom_vline(xintercept = others_time,
+             lty = 5,
+             linewidth = 2,
+             color = "#FFCBA4") +
+  annotate(geom = "label",
+           x = others_time, 
+           y = 200, 
+           label = "Linda\nArvid\nLuca") +
+  
+  # Top 10%
+  geom_vline(xintercept = quantile(df$time_hour, 0.10, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time_hour, 0.10, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 10%") +
+  
+  # Top 25%
+  geom_vline(xintercept = quantile(df$time_hour, 0.25, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time_hour, 0.25, 
+                        na.rm = TRUE), 
+           y = 125, 
+           label = "Top 25%") +
+  
+  # Top 50%
+  geom_vline(xintercept = quantile(df$time_hour, 0.5, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time_hour, 0.5, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 50%") +
+  
+  # Top 75%
+  geom_vline(xintercept = quantile(df$time_hour, 0.75, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time_hour, 0.75, 
+                        na.rm = TRUE), 
+           y = 125, 
+           label = "Top 75%",) +
+  
+  # Top 90%
+  geom_vline(xintercept = quantile(df$time_hour, 0.90, 
+                                   na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = quantile(df$time_hour, 0.90, 
+                        na.rm = TRUE), 
+           y = 150, 
+           label = "Top 90%") +
+  
+  scale_x_continuous(breaks = seq(3.75, 10, 0.25)) +
+  labs(title = "\nHow did WE do overall?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nTime (hours)",
+       y = "Count\n",
+       caption = "Outliers (age < 0 or age > 100) have been removed.")
+```
+
+
+### Average Speed
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+df <- df %>% 
+  mutate(avg_speed = 178 / time_hour)
+
+df %>% 
+  ggplot(aes(avg_speed)) +
+  geom_histogram(color = "white",
+                 fill = "#279E9D",
+                 alpha = 0.75) + 
+  
+  annotate(geom = "text",
+           x = 37,
+           y = 175,
+           label = glue("Avg. Speed (km/h):
+                        min: {round(min(df$avg_speed, na.rm = TRUE), 2)}
+                        median: {round(quantile(df$avg_speed, 0.50, na.rm = TRUE), 2)}
+                        avg: {round(mean(df$avg_speed, na.rm = TRUE), 2)}
+                        max: {round(max(df$avg_speed, na.rm = TRUE), 2)}
+                        
+                        Sam: {round(178 / sam_time, 2)}
+                        Arvid, Linda & Luca: {round(178 / others_time, 2)}"),
+           hjust = 0) + 
+  # Sam
+  geom_vline(xintercept = 178 / sam_time,
+             lty = 5,
+             linewidth = 2,
+             color = "#FF6D6A") +
+  annotate(geom = "label",
+           x = 178 / sam_time, 
+           y = 200, 
+           label = "Sam") +
+  
+  # Others
+  geom_vline(xintercept = 178 / others_time,
+             lty = 5,
+             linewidth = 2,
+             color = "#FFCBA4") +
+  annotate(geom = "label",
+           x = 178 / others_time, 
+           y = 200, 
+           label = "Linda\nArvid\nLuca") +
+  
+  # average
+  geom_vline(xintercept = mean(df$avg_speed, 
+                               na.rm = TRUE),
+             linewidth = 1.25,
+             alpha = 0.5) +
+  annotate(geom = "label",
+           x = mean(df$avg_speed, 
+                    na.rm = TRUE),
+           y = 185,
+           label = "Average\n~Median") +
+  
+  scale_x_continuous(breaks = seq(15, 50, 2.5)) +
+  labs(title = "\nHow did WE do overall?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nAverage speed (km/h)",
+       y = "Count\n",
+       caption = "Outliers (age < 0 or age > 100) have been removed.")
+```
+
+
+### Age-Effect?
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 12
+#| fig-height: 8
+
+df %>% 
+  ggplot(aes(age, time)) + 
+  geom_jitter(color = "#279E9D",
+              alpha = 0.75) +
+  geom_smooth(method = "lm",
+              color = "#FF6D6A") +
+  labs(title = "\nAge-Effect?",
+       subtitle = glue("Total: {nrow(df)} Participants\n"),
+       x = "\nAge (years)",
+       y = "Time (hours)\n",
+       caption = "Outliers (age < 0 or age > 100) have been removed.") + 
+  scale_x_continuous(breaks = seq(15, 80, 5)) + 
+  scale_y_continuous(breaks = seq(4, 9, 1))
+```
+
